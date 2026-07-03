@@ -1,5 +1,7 @@
 # spacedata
 
+[![CI](https://github.com/oscarjpicazo/spacedata/actions/workflows/ci.yml/badge.svg)](https://github.com/oscarjpicazo/spacedata/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/spacedata)](https://www.npmjs.com/package/spacedata) [![license](https://img.shields.io/npm/l/spacedata)](LICENSE)
+
 Aggregated public space data — satellite orbits, catalogs and launches — as a single AI-friendly CLI.
 
 Instead of teaching an agent (or yourself) four different APIs, query languages and data formats, `spacedata` exposes one command vocabulary and always answers with a single JSON document. Caching and circuit breakers are built in so heavy automated use never violates the upstream sources' usage policies.
