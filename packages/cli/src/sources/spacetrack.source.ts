@@ -16,8 +16,10 @@ import {
 import {
 	AuthenticationError,
 	MissingCredentialsError,
+	NetworkError,
 	NotFoundError,
 	type SpaceDataError,
+	UpstreamHttpError,
 	UpstreamSchemaError,
 } from "../errors/spacedata-error";
 
@@ -40,6 +42,7 @@ export interface SpacetrackOptions {
 	identity?: string;
 	password?: string;
 	baseUrl?: string;
+	loginUrl?: string;
 }
 
 export interface CatalogEntry {
@@ -209,33 +212,64 @@ function spacetrackQuery<T>(
 	}
 
 	const queryUrl = `${options.baseUrl ?? QUERY_BASE}${queryPath}`;
+	const loginUrl = options.loginUrl ?? LOGIN_URL;
 
+	// Space-Track requires a two-step flow: POST the credentials to the login
+	// endpoint (grants a session cookie), then GET the query with that cookie.
+	// Bundling the query into the login request is rejected with HTTP 400.
 	return sourceFetch<T>({
 		source: SOURCE,
-		url: LOGIN_URL,
-		method: "POST",
-		headers: { "Content-Type": "application/x-www-form-urlencoded" },
-		body: new URLSearchParams({
-			identity,
-			password,
-			query: queryUrl,
-		}).toString(),
-		// The credentials travel in the body only; the cache key is the query.
-		cacheKey: queryUrl,
+		url: queryUrl,
 		cache: options.cache,
 		ttlSeconds,
 		breakerCooldownSeconds: BREAKER_COOLDOWN_SECONDS,
 		fresh: options.fresh,
 		rateLimit: RATE_LIMIT,
 		authenticated: true,
-		parseBody: (body) => {
-			// Failed logins come back as HTTP 200 with a JSON error payload.
-			if (body.includes('"Login"') && body.includes("Failed")) {
-				return err(new AuthenticationError(SOURCE));
-			}
-			return parse(body);
-		},
+		prepare: () => login(loginUrl, identity, password, options.cache),
+		parseBody: parse,
 	});
+}
+
+async function login(
+	loginUrl: string,
+	identity: string,
+	password: string,
+	cache: FileCache,
+): Promise<Result<Record<string, string>, SpaceDataError>> {
+	// The login request also counts against the account's rate limit.
+	cache.recordRequest(SOURCE);
+
+	let response: Response;
+	try {
+		response = await fetch(loginUrl, {
+			method: "POST",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body: new URLSearchParams({ identity, password }).toString(),
+		});
+	} catch (cause) {
+		return err(new NetworkError(SOURCE, cause));
+	}
+
+	if (response.status === 401 || response.status === 403) {
+		return err(new AuthenticationError(SOURCE));
+	}
+	if (response.status !== 200) {
+		cache.openBreaker(SOURCE, BREAKER_COOLDOWN_SECONDS);
+		return err(new UpstreamHttpError(SOURCE, response.status));
+	}
+
+	const body = await response.text();
+	if (body.includes('"Login"') && body.includes("Failed")) {
+		return err(new AuthenticationError(SOURCE));
+	}
+
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length === 0) {
+		return err(new AuthenticationError(SOURCE));
+	}
+	const cookieHeader = cookies.map((cookie) => cookie.split(";")[0]).join("; ");
+	return ok({ Cookie: cookieHeader });
 }
 
 function parseWith<T>(

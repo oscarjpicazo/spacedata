@@ -49,6 +49,12 @@ export interface SourceFetchOptions {
 	 * credentials) without opening the breaker: the upstream is healthy.
 	 */
 	authenticated?: boolean;
+	/**
+	 * Runs after the cache/breaker/rate-limit gates but before the request —
+	 * for sources that need a session first (e.g. Space-Track login). Returns
+	 * extra headers to merge into the request. Only called on cache misses.
+	 */
+	prepare?: () => Promise<Result<Record<string, string>, SpaceDataError>>;
 	/** Parse and validate the raw HTTP body into T (or a domain error). */
 	parseBody: (body: string) => Result<unknown, SpaceDataError>;
 }
@@ -76,6 +82,7 @@ export async function sourceFetch<T>(
 		rateLimit,
 		notFoundMessage,
 		authenticated,
+		prepare,
 		parseBody,
 	} = options;
 
@@ -110,11 +117,20 @@ export async function sourceFetch<T>(
 		cache.recordRequest(source);
 	}
 
+	let extraHeaders: Record<string, string> = {};
+	if (prepare !== undefined) {
+		const prepared = await prepare();
+		if (prepared.isErr()) {
+			return err(prepared.error);
+		}
+		extraHeaders = prepared.value;
+	}
+
 	let response: Response;
 	try {
 		response = await fetch(url, {
 			method: method ?? "GET",
-			headers,
+			headers: { ...headers, ...extraHeaders },
 			body: requestBody,
 		});
 	} catch (cause) {

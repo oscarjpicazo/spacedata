@@ -100,16 +100,39 @@ function mockFetch(
 	return fetchMock;
 }
 
+function loginOk(): Response {
+	return new Response('""', {
+		status: 200,
+		headers: { "set-cookie": "chocolatechip=abc123; path=/; HttpOnly" },
+	});
+}
+
+/** Routes the two-step flow: login POST → session cookie, query GET → data. */
+function mockTwoStep(
+	queryHandler: (url: string, init?: RequestInit) => Response,
+): ReturnType<typeof mock> {
+	return mockFetch((url, init) => {
+		if (url.includes("/ajaxauth/login")) {
+			return loginOk();
+		}
+		return queryHandler(url, init);
+	});
+}
+
 describe("spacetrack source", () => {
-	test("posts credentials and query to the login endpoint and parses SATCAT", async () => {
+	test("logs in for a session cookie, queries with it and parses SATCAT", async () => {
 		const fetchMock = mockFetch((url, init) => {
-			expect(url).toBe("https://www.space-track.org/ajaxauth/login");
-			expect(init?.method).toBe("POST");
-			const body = String(init?.body);
-			expect(body).toContain("identity=user%40example.com");
-			expect(body).toContain("password=hunter2secret");
-			expect(body).toContain("satcat");
-			expect(body).toContain("25544");
+			if (url.includes("/ajaxauth/login")) {
+				expect(init?.method).toBe("POST");
+				const body = String(init?.body);
+				expect(body).toContain("identity=user%40example.com");
+				expect(body).toContain("password=hunter2secret");
+				expect(body).not.toContain("query");
+				return loginOk();
+			}
+			expect(url).toContain("/class/satcat/NORAD_CAT_ID/25544");
+			const headers = init?.headers as Record<string, string>;
+			expect(headers.Cookie).toContain("chocolatechip=abc123");
 			return new Response(JSON.stringify([satcatFixture]), { status: 200 });
 		});
 
@@ -137,7 +160,7 @@ describe("spacetrack source", () => {
 			rcsSize: "LARGE",
 			onOrbit: true,
 		});
-		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
 	test("fails fast with MissingCredentialsError when env/options lack credentials", async () => {
@@ -177,7 +200,7 @@ describe("spacetrack source", () => {
 		});
 		expect(first._unsafeUnwrapErr()).toBeInstanceOf(AuthenticationError);
 
-		const fetchMock = mockFetch(
+		const fetchMock = mockTwoStep(
 			() => new Response(JSON.stringify([satcatFixture]), { status: 200 }),
 		);
 		const retry = await fetchCatalogEntry(25544, {
@@ -186,12 +209,12 @@ describe("spacetrack source", () => {
 			...credentials(),
 		});
 		expect(retry.isOk()).toBe(true);
-		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
 	test("caches by query only: credentials never influence the cache key", async () => {
 		const cache = makeCache();
-		const fetchMock = mockFetch(
+		const fetchMock = mockTwoStep(
 			() => new Response(JSON.stringify([satcatFixture]), { status: 200 }),
 		);
 
@@ -209,11 +232,11 @@ describe("spacetrack source", () => {
 
 		expect(first._unsafeUnwrap().cached).toBe(false);
 		expect(second._unsafeUnwrap().cached).toBe(true);
-		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
 	test("returns NotFoundError when SATCAT has no row for the id", async () => {
-		mockFetch(() => new Response("[]", { status: 200 }));
+		mockTwoStep(() => new Response("[]", { status: 200 }));
 
 		const result = await fetchCatalogEntry(999999, {
 			cache: makeCache(),
@@ -225,7 +248,7 @@ describe("spacetrack source", () => {
 	});
 
 	test("parses conjunctions and filters by NORAD id on either satellite", async () => {
-		mockFetch(
+		mockTwoStep(
 			() => new Response(JSON.stringify([cdmFixture]), { status: 200 }),
 		);
 
@@ -258,7 +281,7 @@ describe("spacetrack source", () => {
 	});
 
 	test("parses re-entry predictions (TIP)", async () => {
-		mockFetch(
+		mockTwoStep(
 			() => new Response(JSON.stringify([tipFixture]), { status: 200 }),
 		);
 
@@ -283,8 +306,8 @@ describe("spacetrack source", () => {
 	});
 
 	test("parses element history with derived orbit per epoch", async () => {
-		mockFetch((_url, init) => {
-			expect(String(init?.body)).toContain("gp_history");
+		mockTwoStep((url) => {
+			expect(url).toContain("gp_history");
 			return new Response(JSON.stringify([gpHistoryFixture]), { status: 200 });
 		});
 
@@ -302,7 +325,7 @@ describe("spacetrack source", () => {
 	});
 
 	test("returns NotFoundError when there is no element history", async () => {
-		mockFetch(() => new Response("[]", { status: 200 }));
+		mockTwoStep(() => new Response("[]", { status: 200 }));
 
 		const result = await fetchElsetHistory(999999, 20, {
 			cache: makeCache(),
@@ -314,7 +337,7 @@ describe("spacetrack source", () => {
 	});
 
 	test("rejects non-numeric values in numeric fields", async () => {
-		mockFetch(
+		mockTwoStep(
 			() =>
 				new Response(
 					JSON.stringify([{ ...satcatFixture, PERIOD: "not-a-number" }]),
