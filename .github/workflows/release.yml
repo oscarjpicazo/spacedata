@@ -1,0 +1,38 @@
+name: Release
+
+# Publishes the cli package to npm when a version tag (v*) is pushed.
+# Requires the NPM_TOKEN repository secret (npm granular token with
+# read/write access to the spacecli package).
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: make setup
+
+      - name: Build (typecheck + bundle)
+        run: make build
+
+      - name: Test
+        run: make test
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Publish to npm
+        working-directory: packages/cli
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
