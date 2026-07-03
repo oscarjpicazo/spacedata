@@ -1,5 +1,5 @@
 {
-	"name": "spacedata-cli",
+	"name": "spacedata",
 	"version": "0.1.0",
 	"description": "Aggregated public space data (satellite orbits, catalogs, launches) as an AI-friendly CLI",
 	"type": "module",

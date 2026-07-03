@@ -7,7 +7,7 @@ One command vocabulary, always a single JSON document as output, with local cach
 ## Install
 
 ```bash
-npm install -g spacedata-cli
+npm install -g spacedata
 ```
 
 ## Usage
