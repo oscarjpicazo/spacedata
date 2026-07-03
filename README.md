@@ -6,7 +6,7 @@ Instead of teaching an agent (or yourself) four different APIs, query languages 
 
 ## Status
 
-**v0.1 (MVP)** — CelesTrak (orbital elements, catalog search) and Launch Library 2 (upcoming launches). No API keys or accounts needed. Planned next: Space-Track (conjunctions, re-entries, historical catalog) and ESA DISCOSweb (physical metadata) using the user's own credentials.
+**v0.2** — CelesTrak (orbital elements, catalog search) and Launch Library 2 (upcoming launches) with no account needed, plus Space-Track (SATCAT, element history, conjunctions, re-entry predictions) using your own free account. Planned next: ESA DISCOSweb (physical metadata) and a cross-source `sat info`.
 
 ## Usage
 

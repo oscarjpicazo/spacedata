@@ -52,4 +52,36 @@ describe("FileCache", () => {
 
 		expect(cache.breakerRetryAt("celestrak")).toBeUndefined();
 	});
+
+	test("rate limiter allows requests under both windows", () => {
+		const cache = makeCache();
+		cache.recordRequest("spacetrack");
+		cache.recordRequest("spacetrack");
+
+		expect(cache.rateLimitRetryAt("spacetrack", 25, 250)).toBeUndefined();
+	});
+
+	test("rate limiter blocks when the per-minute window is exhausted", () => {
+		const cache = makeCache();
+		for (let i = 0; i < 3; i++) {
+			cache.recordRequest("spacetrack");
+		}
+
+		const retryAt = cache.rateLimitRetryAt("spacetrack", 3, 250);
+		expect(retryAt).toBeDefined();
+		expect(Date.parse(retryAt as string)).toBeGreaterThan(Date.now());
+		// The window is per source: another source is unaffected.
+		expect(cache.rateLimitRetryAt("celestrak", 3, 250)).toBeUndefined();
+	});
+
+	test("rate limiter blocks when the per-hour window is exhausted", () => {
+		const cache = makeCache();
+		for (let i = 0; i < 5; i++) {
+			cache.recordRequest("spacetrack");
+		}
+
+		const retryAt = cache.rateLimitRetryAt("spacetrack", 100, 5);
+		expect(retryAt).toBeDefined();
+		expect(Date.parse(retryAt as string)).toBeGreaterThan(Date.now());
+	});
 });

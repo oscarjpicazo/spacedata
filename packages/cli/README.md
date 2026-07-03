@@ -21,7 +21,17 @@ spacedata --pretty tle 25544                         # human-readable JSON
 spacedata --fresh tle 25544                          # bypass the local cache
 ```
 
-`tle` and `sat search` include derived geometry per object: perigee/apogee altitude (km), period (minutes) and semi-major axis, computed from the mean elements.
+With a free [Space-Track](https://www.space-track.org) account (set `SPACEDATA_SPACETRACK_IDENTITY` and `SPACEDATA_SPACETRACK_PASSWORD`):
+
+```bash
+spacedata sat catalog 25544                          # full SATCAT record: type, country, launch, decay
+spacedata sat history 25544 --limit 30               # orbital element history (orbit evolution/decay)
+spacedata conjunctions --limit 20                    # upcoming close approaches (public CDMs)
+spacedata conjunctions --norad 25544                 # conjunctions involving one object
+spacedata reentries --limit 10                       # latest re-entry predictions (TIP)
+```
+
+`tle`, `sat search` and `sat history` include derived geometry per element set: perigee/apogee altitude (km), period (minutes) and semi-major axis, computed from the mean elements.
 
 ## Output contract
 
@@ -29,14 +39,17 @@ Stable, designed for AI agents:
 
 - **stdout**: one JSON document — `{ok: true, source, cached, fetchedAt, data}`
 - **stderr**: one JSON document — `{ok: false, error: {code, message, ...}}`
-- **exit codes**: `0` ok · `1` usage error · `2` not found · `3` upstream/network error · `4` circuit open (source in cooldown) · `5` unexpected upstream schema
+- **exit codes**: `0` ok · `1` usage error · `2` not found · `3` upstream/network error · `4` circuit open or rate limited · `5` unexpected upstream schema · `6` missing or rejected credentials
 
-## Caching
+## Caching and rate limits
 
-Responses are cached in `~/.cache/spacedata` (override with `--cache-dir` or `XDG_CACHE_HOME`): CelesTrak data for 2 h (its GP update cycle), Launch Library 2 for 1 h (free tier: 15 calls/hour per IP). On any non-200 response the source's circuit breaker opens and spacedata refuses to query it again until the cooldown expires, as the providers' usage policies require.
+Responses are cached in `~/.cache/spacedata` (override with `--cache-dir` or `XDG_CACHE_HOME`): CelesTrak data for 2 h (its GP update cycle), Launch Library 2 for 1 h (free tier: 15 calls/hour per IP), Space-Track for 1 h (SATCAT: 24 h). On any non-200 response the source's circuit breaker opens and spacedata refuses to query it again until the cooldown expires, as the providers' usage policies require.
+
+Space-Track additionally limits accounts to <30 requests/minute and 300/hour; spacedata tracks your request rate across invocations and fails fast with `RATE_LIMITED` (including a `retryAt`) before ever exceeding it, so heavy automated use cannot endanger your account.
 
 ## Environment variables
 
+- `SPACEDATA_SPACETRACK_IDENTITY` / `SPACEDATA_SPACETRACK_PASSWORD` — your Space-Track credentials (free account, register at space-track.org). Unlock `sat catalog`, `sat history`, `conjunctions` and `reentries`.
 - `SPACEDATA_LL2_TOKEN` — Launch Library 2 API token (Patreon tiers) for higher rate limits.
 - `SPACEDATA_LL2_BASE_URL` — override the LL2 base URL, e.g. `https://lldev.thespacedevs.com/2.3.0` while developing.
 
@@ -44,3 +57,4 @@ Responses are cached in `~/.cache/spacedata` (override with `--cache-dir` or `XD
 
 - Orbital data: [CelesTrak](https://celestrak.org) (Dr. T.S. Kelso)
 - Launch data: [Launch Library 2](https://thespacedevs.com/llapi) by The Space Devs
+- Catalog, conjunction and re-entry data: [Space-Track.org](https://www.space-track.org) (18th Space Defense Squadron, USSPACECOM)

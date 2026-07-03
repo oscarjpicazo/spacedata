@@ -67,6 +67,42 @@ export class CircuitOpenError extends SpaceDataError {
 	}
 }
 
+export class RateLimitedError extends SpaceDataError {
+	readonly code = "RATE_LIMITED";
+	readonly exitCode = 4;
+
+	constructor(
+		readonly source: string,
+		readonly retryAt: string,
+	) {
+		super(
+			`${source} rate limit reached; refusing to query it again until ${retryAt} to respect its usage policy`,
+		);
+	}
+
+	override toJSON(): Record<string, unknown> {
+		return { ...super.toJSON(), source: this.source, retryAt: this.retryAt };
+	}
+}
+
+export class MissingCredentialsError extends SpaceDataError {
+	readonly code = "MISSING_CREDENTIALS";
+	readonly exitCode = 6;
+}
+
+export class AuthenticationError extends SpaceDataError {
+	readonly code = "AUTH_FAILED";
+	readonly exitCode = 6;
+
+	constructor(readonly source: string) {
+		super(`${source} rejected the provided credentials`);
+	}
+
+	override toJSON(): Record<string, unknown> {
+		return { ...super.toJSON(), source: this.source };
+	}
+}
+
 export class UpstreamSchemaError extends SpaceDataError {
 	readonly code = "UPSTREAM_SCHEMA";
 	readonly exitCode = 5;

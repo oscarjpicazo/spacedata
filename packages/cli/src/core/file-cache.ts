@@ -107,6 +107,41 @@ export class FileCache {
 		rmSync(this.breakerPath(source), { force: true });
 	}
 
+	/**
+	 * Sliding-window rate limiter persisted across CLI invocations. Returns
+	 * the ISO instant when the next request becomes allowed, or undefined if
+	 * a request may be sent now.
+	 */
+	rateLimitRetryAt(
+		source: string,
+		perMinute: number,
+		perHour: number,
+	): string | undefined {
+		const now = Date.now();
+		const stamps = this.readRequestLog(source).filter(
+			(t) => now - t < 60 * 60 * 1000,
+		);
+		const lastMinute = stamps.filter((t) => now - t < 60 * 1000);
+		if (lastMinute.length >= perMinute) {
+			const oldest = Math.min(...lastMinute);
+			return new Date(oldest + 60 * 1000).toISOString();
+		}
+		if (stamps.length >= perHour) {
+			const oldest = Math.min(...stamps);
+			return new Date(oldest + 60 * 60 * 1000).toISOString();
+		}
+		return undefined;
+	}
+
+	recordRequest(source: string): void {
+		const now = Date.now();
+		const stamps = this.readRequestLog(source).filter(
+			(t) => now - t < 60 * 60 * 1000,
+		);
+		stamps.push(now);
+		writeFileSync(this.requestLogPath(source), JSON.stringify(stamps));
+	}
+
 	private entryPath(namespace: string, key: string): string {
 		const hash = createHash("sha256").update(key).digest("hex").slice(0, 32);
 		return join(this.dir, `${namespace}-${hash}.json`);
@@ -114,6 +149,26 @@ export class FileCache {
 
 	private breakerPath(source: string): string {
 		return join(this.dir, `breaker-${source}.json`);
+	}
+
+	private requestLogPath(source: string): string {
+		return join(this.dir, `requests-${source}.json`);
+	}
+
+	private readRequestLog(source: string): number[] {
+		const path = this.requestLogPath(source);
+		if (!existsSync(path)) {
+			return [];
+		}
+		try {
+			const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
+			return Array.isArray(parsed)
+				? parsed.filter((t): t is number => typeof t === "number")
+				: [];
+		} catch {
+			rmSync(path, { force: true });
+			return [];
+		}
 	}
 
 	private readEnvelope(path: string): CacheEnvelope | undefined {

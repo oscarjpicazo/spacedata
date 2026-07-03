@@ -8,6 +8,12 @@ import type { SourceResult } from "./core/source-fetch";
 import type { SpaceDataError } from "./errors/spacedata-error";
 import { fetchByCatalogNumber, searchByName } from "./sources/celestrak.source";
 import { fetchUpcomingLaunches } from "./sources/launch-library.source";
+import {
+	fetchCatalogEntry,
+	fetchConjunctions,
+	fetchElsetHistory,
+	fetchReentries,
+} from "./sources/spacetrack.source";
 
 interface GlobalOptions {
 	pretty: boolean;
@@ -68,6 +74,96 @@ sat
 	.action(async (query: string, _options: unknown, command: Command) => {
 		const globals = command.optsWithGlobals<GlobalOptions>();
 		const result = await searchByName(query, sourceOptions(globals));
+		finish(result, globals.pretty);
+	});
+
+sat
+	.command("catalog")
+	.description(
+		"Full catalog record (SATCAT) for one object: type, country, launch date/site, " +
+			"decay date and orbit summary. Source: Space-Track — requires a free personal " +
+			"account via SPACEDATA_SPACETRACK_IDENTITY / SPACEDATA_SPACETRACK_PASSWORD. " +
+			"Example: spacedata sat catalog 25544",
+	)
+	.argument("<norad-id>", "NORAD catalog id", parseNoradId)
+	.action(async (noradId: number, _options: unknown, command: Command) => {
+		const globals = command.optsWithGlobals<GlobalOptions>();
+		const result = await fetchCatalogEntry(noradId, sourceOptions(globals));
+		finish(result, globals.pretty);
+	});
+
+sat
+	.command("history")
+	.description(
+		"Historical orbital element sets for one object (most recent first), each with " +
+			"derived perigee/apogee/period — shows orbit evolution and decay over time. " +
+			"Source: Space-Track (account required). Example: spacedata sat history 25544 --limit 30",
+	)
+	.argument("<norad-id>", "NORAD catalog id", parseNoradId)
+	.option(
+		"--limit <n>",
+		"number of element sets to return (1-100)",
+		parseLimit,
+		20,
+	)
+	.action(
+		async (noradId: number, options: { limit: number }, command: Command) => {
+			const globals = command.optsWithGlobals<GlobalOptions>();
+			const result = await fetchElsetHistory(
+				noradId,
+				options.limit,
+				sourceOptions(globals),
+			);
+			finish(result, globals.pretty);
+		},
+	);
+
+program
+	.command("conjunctions")
+	.description(
+		"Upcoming close approaches between cataloged objects (public CDMs), ordered by " +
+			"time of closest approach, with miss distance and collision probability. " +
+			"Source: Space-Track (account required). Example: spacedata conjunctions --limit 20",
+	)
+	.option(
+		"--limit <n>",
+		"maximum number of conjunctions (1-100)",
+		parseLimit,
+		20,
+	)
+	.option(
+		"--norad <id>",
+		"only conjunctions involving this NORAD catalog id",
+		parseNoradId,
+	)
+	.action(
+		async (options: { limit: number; norad?: number }, command: Command) => {
+			const globals = command.optsWithGlobals<GlobalOptions>();
+			const result = await fetchConjunctions(
+				options.limit,
+				options.norad,
+				sourceOptions(globals),
+			);
+			finish(result, globals.pretty);
+		},
+	);
+
+program
+	.command("reentries")
+	.description(
+		"Latest atmospheric re-entry predictions (TIP messages): predicted decay epoch, " +
+			"uncertainty window and last predicted location. " +
+			"Source: Space-Track (account required). Example: spacedata reentries --limit 10",
+	)
+	.option(
+		"--limit <n>",
+		"maximum number of predictions (1-100)",
+		parseLimit,
+		10,
+	)
+	.action(async (options: { limit: number }, command: Command) => {
+		const globals = command.optsWithGlobals<GlobalOptions>();
+		const result = await fetchReentries(options.limit, sourceOptions(globals));
 		finish(result, globals.pretty);
 	});
 
