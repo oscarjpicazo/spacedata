@@ -17,6 +17,16 @@ spacedata launches upcoming --limit 5                # next 5 orbital launches
 spacedata launches upcoming --search starlink        # filter launches
 spacedata --pretty tle 25544                         # human-readable JSON
 spacedata --fresh tle 25544                          # bypass the local cache
+spacedata sat catalog 25544                          # full SATCAT record: type, status, owner, launch, RCS
+spacedata conjunctions --limit 20                    # upcoming close approaches (CelesTrak SOCRATES)
+```
+
+Two datasets only exist behind a free [Space-Track](https://www.space-track.org) account (set `SPACEDATA_SPACETRACK_IDENTITY` and `SPACEDATA_SPACETRACK_PASSWORD`):
+
+```bash
+spacedata sat history 25544 --limit 30               # orbital element history (orbit evolution/decay)
+spacedata reentries --limit 10                       # re-entry predictions (TIP)
+spacedata conjunctions --source spacetrack           # official public CDMs instead of SOCRATES
 ```
 
 ### Output contract
@@ -25,7 +35,7 @@ Stable, designed for AI agents:
 
 - **stdout**: one JSON document — `{ok: true, source, cached, fetchedAt, data}`
 - **stderr**: one JSON document — `{ok: false, error: {code, message, ...}}`
-- **exit codes**: `0` ok · `1` usage error · `2` not found · `3` upstream/network error · `4` circuit open (source in cooldown) · `5` unexpected upstream schema
+- **exit codes**: `0` ok · `1` usage error · `2` not found · `3` upstream/network error · `4` circuit open or rate limited · `5` unexpected upstream schema · `6` missing or rejected credentials
 
 `tle` and `sat search` include derived geometry per object: perigee/apogee altitude (km), period (minutes) and semi-major axis, computed from the mean elements.
 

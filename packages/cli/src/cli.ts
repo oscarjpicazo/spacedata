@@ -6,10 +6,14 @@ import { defaultCacheDir, FileCache } from "./core/file-cache";
 import { emit, fail } from "./core/output";
 import type { SourceResult } from "./core/source-fetch";
 import type { SpaceDataError } from "./errors/spacedata-error";
-import { fetchByCatalogNumber, searchByName } from "./sources/celestrak.source";
-import { fetchUpcomingLaunches } from "./sources/launch-library.source";
 import {
-	fetchCatalogEntry,
+	fetchByCatalogNumber,
+	fetchCatalogRecord,
+	searchByName,
+} from "./sources/celestrak.source";
+import { fetchUpcomingLaunches } from "./sources/launch-library.source";
+import { fetchSocratesConjunctions } from "./sources/socrates.source";
+import {
 	fetchConjunctions,
 	fetchElsetHistory,
 	fetchReentries,
@@ -80,15 +84,14 @@ sat
 sat
 	.command("catalog")
 	.description(
-		"Full catalog record (SATCAT) for one object: type, country, launch date/site, " +
-			"decay date and orbit summary. Source: Space-Track — requires a free personal " +
-			"account via SPACEDATA_SPACETRACK_IDENTITY / SPACEDATA_SPACETRACK_PASSWORD. " +
-			"Example: spacedata sat catalog 25544",
+		"Full catalog record (SATCAT) for one object: type, operational status, owner, " +
+			"launch date/site, decay date, orbit summary and radar cross-section. " +
+			"Source: CelesTrak (no account needed). Example: spacedata sat catalog 25544",
 	)
 	.argument("<norad-id>", "NORAD catalog id", parseNoradId)
 	.action(async (noradId: number, _options: unknown, command: Command) => {
 		const globals = command.optsWithGlobals<GlobalOptions>();
-		const result = await fetchCatalogEntry(noradId, sourceOptions(globals));
+		const result = await fetchCatalogRecord(noradId, sourceOptions(globals));
 		finish(result, globals.pretty);
 	});
 
@@ -121,9 +124,11 @@ sat
 program
 	.command("conjunctions")
 	.description(
-		"Upcoming close approaches between cataloged objects (public CDMs), ordered by " +
-			"time of closest approach, with miss distance and collision probability. " +
-			"Source: Space-Track (account required). Example: spacedata conjunctions --limit 20",
+		"Upcoming close approaches between cataloged objects, with miss distance and " +
+			"collision probability, sorted by highest probability. Default source: CelesTrak " +
+			"SOCRATES (no account needed, refreshed 3x/day). Use --source spacetrack for " +
+			"official public CDMs (requires a free Space-Track account). " +
+			"Example: spacedata conjunctions --limit 20",
 	)
 	.option(
 		"--limit <n>",
@@ -136,14 +141,31 @@ program
 		"only conjunctions involving this NORAD catalog id",
 		parseNoradId,
 	)
+	.option(
+		"--source <name>",
+		"data source: 'socrates' (public) or 'spacetrack' (CDMs, account required)",
+		"socrates",
+	)
 	.action(
-		async (options: { limit: number; norad?: number }, command: Command) => {
+		async (
+			options: { limit: number; norad?: number; source: string },
+			command: Command,
+		) => {
 			const globals = command.optsWithGlobals<GlobalOptions>();
-			const result = await fetchConjunctions(
-				options.limit,
-				options.norad,
-				sourceOptions(globals),
-			);
+			if (options.source === "spacetrack") {
+				const result = await fetchConjunctions(
+					options.limit,
+					options.norad,
+					sourceOptions(globals),
+				);
+				finish(result, globals.pretty);
+				return;
+			}
+			const result = await fetchSocratesConjunctions({
+				...sourceOptions(globals),
+				limit: options.limit,
+				noradId: options.norad,
+			});
 			finish(result, globals.pretty);
 		},
 	);

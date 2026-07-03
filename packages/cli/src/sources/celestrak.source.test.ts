@@ -9,7 +9,31 @@ import {
 	UpstreamHttpError,
 	UpstreamSchemaError,
 } from "../errors/spacedata-error";
-import { fetchByCatalogNumber, searchByName } from "./celestrak.source";
+import {
+	fetchByCatalogNumber,
+	fetchCatalogRecord,
+	searchByName,
+} from "./celestrak.source";
+
+const satcatFixture = {
+	OBJECT_NAME: "ISS (ZARYA)",
+	OBJECT_ID: "1998-067A",
+	NORAD_CAT_ID: 25544,
+	OBJECT_TYPE: "PAY",
+	OPS_STATUS_CODE: "+",
+	OWNER: "ISS",
+	LAUNCH_DATE: "1998-11-20",
+	LAUNCH_SITE: "TYMSC",
+	DECAY_DATE: "",
+	PERIOD: 92.93,
+	INCLINATION: 51.63,
+	APOGEE: 421,
+	PERIGEE: 415,
+	RCS: 399.0524,
+	DATA_STATUS_CODE: "",
+	ORBIT_CENTER: "EA",
+	ORBIT_TYPE: "ORB",
+};
 
 const issOmm = {
 	OBJECT_NAME: "ISS (ZARYA)",
@@ -145,6 +169,49 @@ describe("celestrak source", () => {
 		expect(secondError).toBeInstanceOf(CircuitOpenError);
 		expect((secondError as CircuitOpenError).retryAt).toBeDefined();
 		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("fetches and normalizes a public SATCAT record", async () => {
+		mockFetch((url) => {
+			expect(url).toContain("satcat/records.php");
+			expect(url).toContain("CATNR=25544");
+			return new Response(JSON.stringify([satcatFixture]), { status: 200 });
+		});
+
+		const result = await fetchCatalogRecord(25544, {
+			cache: makeCache(),
+			fresh: false,
+		});
+
+		expect(result._unsafeUnwrap().data).toEqual({
+			noradId: 25544,
+			name: "ISS (ZARYA)",
+			internationalDesignator: "1998-067A",
+			objectType: "PAYLOAD",
+			operationalStatus: "OPERATIONAL",
+			owner: "ISS",
+			launchDate: "1998-11-20",
+			launchSite: "TYMSC",
+			decayDate: undefined,
+			periodMinutes: 92.93,
+			inclinationDeg: 51.63,
+			apogeeKm: 421,
+			perigeeKm: 415,
+			rcsM2: 399.0524,
+			orbitCenter: "EA",
+			onOrbit: true,
+		});
+	});
+
+	test("maps the 'No SATCAT records found' sentinel to NotFoundError", async () => {
+		mockFetch(() => new Response("No SATCAT records found", { status: 200 }));
+
+		const result = await fetchCatalogRecord(999999, {
+			cache: makeCache(),
+			fresh: false,
+		});
+
+		expect(result._unsafeUnwrapErr()).toBeInstanceOf(NotFoundError);
 	});
 
 	test("rejects payloads that do not match the OMM schema", async () => {

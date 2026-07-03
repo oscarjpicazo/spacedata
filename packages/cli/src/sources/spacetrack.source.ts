@@ -8,8 +8,6 @@ import {
 	cdmArraySchema,
 	type GpHistory,
 	gpHistoryArraySchema,
-	type SatcatEntry,
-	satcatArraySchema,
 	type Tip,
 	tipArraySchema,
 } from "../domain/spacetrack.schema";
@@ -31,9 +29,8 @@ const QUERY_BASE = "https://www.space-track.org/basicspacedata/query";
 // violations can suspend the account. We stay under with a safety margin,
 // enforced across CLI invocations via the persistent request log.
 const RATE_LIMIT = { perMinute: 25, perHour: 250 };
-// Recommended query cadences per dataset: GP at most hourly, SATCAT daily.
+// Recommended query cadence for GP-class data is at most hourly.
 const TTL_HOUR_SECONDS = 60 * 60;
-const TTL_DAY_SECONDS = 24 * 60 * 60;
 const BREAKER_COOLDOWN_SECONDS = 60 * 60;
 
 export interface SpacetrackOptions {
@@ -43,23 +40,6 @@ export interface SpacetrackOptions {
 	password?: string;
 	baseUrl?: string;
 	loginUrl?: string;
-}
-
-export interface CatalogEntry {
-	noradId: number;
-	name: string;
-	internationalDesignator: string | undefined;
-	objectType: string | undefined;
-	country: string | undefined;
-	launchDate: string | undefined;
-	launchSite: string | undefined;
-	decayDate: string | undefined;
-	periodMinutes: number | undefined;
-	inclinationDeg: number | undefined;
-	apogeeKm: number | undefined;
-	perigeeKm: number | undefined;
-	rcsSize: string | undefined;
-	onOrbit: boolean;
 }
 
 export interface Conjunction {
@@ -103,29 +83,6 @@ export interface HistoricalElset {
 	argOfPericenterDeg: number;
 	meanAnomalyDeg: number;
 	derived: DerivedOrbit;
-}
-
-export function fetchCatalogEntry(
-	noradId: number,
-	options: SpacetrackOptions,
-): Promise<Result<SourceResult<CatalogEntry>, SpaceDataError>> {
-	return spacetrackQuery<CatalogEntry>(
-		`/class/satcat/NORAD_CAT_ID/${noradId}/format/json`,
-		options,
-		TTL_DAY_SECONDS,
-		(body) =>
-			parseWith(satcatArraySchema, body).andThen((entries) => {
-				const entry = entries[0];
-				if (entry === undefined) {
-					return err(
-						new NotFoundError(
-							`no object with NORAD id ${noradId} in the Space-Track catalog`,
-						),
-					);
-				}
-				return ok(toCatalogEntry(entry));
-			}),
-	);
 }
 
 export function fetchConjunctions(
@@ -292,25 +249,6 @@ function parseWith<T>(
 		);
 	}
 	return ok(parsed.data);
-}
-
-function toCatalogEntry(entry: SatcatEntry): CatalogEntry {
-	return {
-		noradId: entry.NORAD_CAT_ID,
-		name: entry.SATNAME,
-		internationalDesignator: entry.OBJECT_ID,
-		objectType: entry.OBJECT_TYPE,
-		country: entry.COUNTRY,
-		launchDate: entry.LAUNCH,
-		launchSite: entry.SITE,
-		decayDate: entry.DECAY,
-		periodMinutes: entry.PERIOD,
-		inclinationDeg: entry.INCLINATION,
-		apogeeKm: entry.APOGEE,
-		perigeeKm: entry.PERIGEE,
-		rcsSize: entry.RCS_SIZE,
-		onOrbit: entry.DECAY === undefined,
-	};
 }
 
 function toConjunction(cdm: Cdm): Conjunction {

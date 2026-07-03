@@ -10,28 +10,10 @@ import {
 	UpstreamSchemaError,
 } from "../errors/spacedata-error";
 import {
-	fetchCatalogEntry,
 	fetchConjunctions,
 	fetchElsetHistory,
 	fetchReentries,
 } from "./spacetrack.source";
-
-const satcatFixture = {
-	NORAD_CAT_ID: "25544",
-	OBJECT_ID: "1998-067A",
-	SATNAME: "ISS (ZARYA)",
-	OBJECT_TYPE: "PAYLOAD",
-	COUNTRY: "ISS",
-	LAUNCH: "1998-11-20",
-	SITE: "TTMTR",
-	DECAY: null,
-	PERIOD: "92.93",
-	INCLINATION: "51.63",
-	APOGEE: "421",
-	PERIGEE: "415",
-	RCS_SIZE: "LARGE",
-	CURRENT: "Y",
-};
 
 const cdmFixture = {
 	CDM_ID: "1234567",
@@ -120,7 +102,7 @@ function mockTwoStep(
 }
 
 describe("spacetrack source", () => {
-	test("logs in for a session cookie, queries with it and parses SATCAT", async () => {
+	test("logs in for a session cookie, queries with it and parses element history", async () => {
 		const fetchMock = mockFetch((url, init) => {
 			if (url.includes("/ajaxauth/login")) {
 				expect(init?.method).toBe("POST");
@@ -130,13 +112,13 @@ describe("spacetrack source", () => {
 				expect(body).not.toContain("query");
 				return loginOk();
 			}
-			expect(url).toContain("/class/satcat/NORAD_CAT_ID/25544");
+			expect(url).toContain("/class/gp_history/NORAD_CAT_ID/25544");
 			const headers = init?.headers as Record<string, string>;
 			expect(headers.Cookie).toContain("chocolatechip=abc123");
-			return new Response(JSON.stringify([satcatFixture]), { status: 200 });
+			return new Response(JSON.stringify([gpHistoryFixture]), { status: 200 });
 		});
 
-		const result = await fetchCatalogEntry(25544, {
+		const result = await fetchElsetHistory(25544, 20, {
 			cache: makeCache(),
 			fresh: false,
 			...credentials(),
@@ -144,22 +126,11 @@ describe("spacetrack source", () => {
 
 		const value = result._unsafeUnwrap();
 		expect(value.source).toBe("spacetrack");
-		expect(value.data).toEqual({
-			noradId: 25544,
-			name: "ISS (ZARYA)",
-			internationalDesignator: "1998-067A",
-			objectType: "PAYLOAD",
-			country: "ISS",
-			launchDate: "1998-11-20",
-			launchSite: "TTMTR",
-			decayDate: undefined,
-			periodMinutes: 92.93,
-			inclinationDeg: 51.63,
-			apogeeKm: 421,
-			perigeeKm: 415,
-			rcsSize: "LARGE",
-			onOrbit: true,
-		});
+		const elset = value.data[0];
+		expect(elset.epoch).toBe("2026-06-01T00:00:00.000000");
+		expect(elset.meanMotionRevPerDay).toBe(15.5);
+		expect(elset.derived.perigeeAltitudeKm).toBeGreaterThan(395);
+		expect(elset.derived.perigeeAltitudeKm).toBeLessThan(415);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
@@ -168,7 +139,7 @@ describe("spacetrack source", () => {
 		delete process.env.SPACEDATA_SPACETRACK_IDENTITY;
 		delete process.env.SPACEDATA_SPACETRACK_PASSWORD;
 
-		const result = await fetchCatalogEntry(25544, {
+		const result = await fetchElsetHistory(25544, 20, {
 			cache: makeCache(),
 			fresh: false,
 		});
@@ -180,7 +151,7 @@ describe("spacetrack source", () => {
 	test("maps a Space-Track login failure payload to AuthenticationError", async () => {
 		mockFetch(() => new Response('{"Login":"Failed"}', { status: 200 }));
 
-		const result = await fetchCatalogEntry(25544, {
+		const result = await fetchElsetHistory(25544, 20, {
 			cache: makeCache(),
 			fresh: false,
 			...credentials(),
@@ -193,7 +164,7 @@ describe("spacetrack source", () => {
 		const cache = makeCache();
 		mockFetch(() => new Response("Unauthorized", { status: 401 }));
 
-		const first = await fetchCatalogEntry(25544, {
+		const first = await fetchElsetHistory(25544, 20, {
 			cache,
 			fresh: false,
 			...credentials(),
@@ -201,9 +172,9 @@ describe("spacetrack source", () => {
 		expect(first._unsafeUnwrapErr()).toBeInstanceOf(AuthenticationError);
 
 		const fetchMock = mockTwoStep(
-			() => new Response(JSON.stringify([satcatFixture]), { status: 200 }),
+			() => new Response(JSON.stringify([gpHistoryFixture]), { status: 200 }),
 		);
-		const retry = await fetchCatalogEntry(25544, {
+		const retry = await fetchElsetHistory(25544, 20, {
 			cache,
 			fresh: false,
 			...credentials(),
@@ -215,15 +186,15 @@ describe("spacetrack source", () => {
 	test("caches by query only: credentials never influence the cache key", async () => {
 		const cache = makeCache();
 		const fetchMock = mockTwoStep(
-			() => new Response(JSON.stringify([satcatFixture]), { status: 200 }),
+			() => new Response(JSON.stringify([gpHistoryFixture]), { status: 200 }),
 		);
 
-		const first = await fetchCatalogEntry(25544, {
+		const first = await fetchElsetHistory(25544, 20, {
 			cache,
 			fresh: false,
 			...credentials(),
 		});
-		const second = await fetchCatalogEntry(25544, {
+		const second = await fetchElsetHistory(25544, 20, {
 			cache,
 			fresh: false,
 			identity: "other@example.com",
@@ -233,18 +204,6 @@ describe("spacetrack source", () => {
 		expect(first._unsafeUnwrap().cached).toBe(false);
 		expect(second._unsafeUnwrap().cached).toBe(true);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
-	});
-
-	test("returns NotFoundError when SATCAT has no row for the id", async () => {
-		mockTwoStep(() => new Response("[]", { status: 200 }));
-
-		const result = await fetchCatalogEntry(999999, {
-			cache: makeCache(),
-			fresh: false,
-			...credentials(),
-		});
-
-		expect(result._unsafeUnwrapErr()).toBeInstanceOf(NotFoundError);
 	});
 
 	test("parses conjunctions and filters by NORAD id on either satellite", async () => {
@@ -305,25 +264,6 @@ describe("spacetrack source", () => {
 		});
 	});
 
-	test("parses element history with derived orbit per epoch", async () => {
-		mockTwoStep((url) => {
-			expect(url).toContain("gp_history");
-			return new Response(JSON.stringify([gpHistoryFixture]), { status: 200 });
-		});
-
-		const result = await fetchElsetHistory(25544, 20, {
-			cache: makeCache(),
-			fresh: false,
-			...credentials(),
-		});
-
-		const elset = result._unsafeUnwrap().data[0];
-		expect(elset.epoch).toBe("2026-06-01T00:00:00.000000");
-		expect(elset.meanMotionRevPerDay).toBe(15.5);
-		expect(elset.derived.perigeeAltitudeKm).toBeGreaterThan(395);
-		expect(elset.derived.perigeeAltitudeKm).toBeLessThan(415);
-	});
-
 	test("returns NotFoundError when there is no element history", async () => {
 		mockTwoStep(() => new Response("[]", { status: 200 }));
 
@@ -340,12 +280,14 @@ describe("spacetrack source", () => {
 		mockTwoStep(
 			() =>
 				new Response(
-					JSON.stringify([{ ...satcatFixture, PERIOD: "not-a-number" }]),
+					JSON.stringify([
+						{ ...gpHistoryFixture, MEAN_MOTION: "not-a-number" },
+					]),
 					{ status: 200 },
 				),
 		);
 
-		const result = await fetchCatalogEntry(25544, {
+		const result = await fetchElsetHistory(25544, 20, {
 			cache: makeCache(),
 			fresh: false,
 			...credentials(),

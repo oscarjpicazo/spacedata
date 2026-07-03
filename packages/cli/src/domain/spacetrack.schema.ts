@@ -40,27 +40,6 @@ const nullableString = z
 	.nullable()
 	.transform((value) => value ?? undefined);
 
-/** SATCAT entry: the catalog record of one tracked object. */
-export const satcatSchema = z.object({
-	NORAD_CAT_ID: numericString,
-	OBJECT_ID: nullableString,
-	SATNAME: z.string(),
-	OBJECT_TYPE: nullableString,
-	COUNTRY: nullableString,
-	LAUNCH: nullableString,
-	SITE: nullableString,
-	DECAY: nullableString,
-	PERIOD: nullableNumericString,
-	INCLINATION: nullableNumericString,
-	APOGEE: nullableNumericString,
-	PERIGEE: nullableNumericString,
-	RCS_SIZE: nullableString.optional(),
-	CURRENT: nullableString.optional(),
-});
-
-export const satcatArraySchema = z.array(satcatSchema);
-export type SatcatEntry = z.infer<typeof satcatSchema>;
-
 /** cdm_public: public conjunction data messages (close approaches). */
 export const cdmSchema = z.object({
 	CDM_ID: z.string(),

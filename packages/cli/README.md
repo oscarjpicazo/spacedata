@@ -21,14 +21,18 @@ spacedata --pretty tle 25544                         # human-readable JSON
 spacedata --fresh tle 25544                          # bypass the local cache
 ```
 
-With a free [Space-Track](https://www.space-track.org) account (set `SPACEDATA_SPACETRACK_IDENTITY` and `SPACEDATA_SPACETRACK_PASSWORD`):
+```bash
+spacedata sat catalog 25544                          # full SATCAT record: type, status, owner, launch, RCS
+spacedata conjunctions --limit 20                    # upcoming close approaches (CelesTrak SOCRATES)
+spacedata conjunctions --norad 25544                 # conjunctions involving one object
+```
+
+Two datasets only exist behind a free [Space-Track](https://www.space-track.org) account (set `SPACEDATA_SPACETRACK_IDENTITY` and `SPACEDATA_SPACETRACK_PASSWORD`):
 
 ```bash
-spacedata sat catalog 25544                          # full SATCAT record: type, country, launch, decay
 spacedata sat history 25544 --limit 30               # orbital element history (orbit evolution/decay)
-spacedata conjunctions --limit 20                    # upcoming close approaches (public CDMs)
-spacedata conjunctions --norad 25544                 # conjunctions involving one object
-spacedata reentries --limit 10                       # latest re-entry predictions (TIP)
+spacedata reentries --limit 10                       # re-entry predictions (TIP)
+spacedata conjunctions --source spacetrack           # official public CDMs instead of SOCRATES
 ```
 
 `tle`, `sat search` and `sat history` include derived geometry per element set: perigee/apogee altitude (km), period (minutes) and semi-major axis, computed from the mean elements.
