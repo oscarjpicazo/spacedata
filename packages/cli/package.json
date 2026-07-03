@@ -1,0 +1,37 @@
+{
+	"name": "spacecli",
+	"version": "0.1.0",
+	"description": "Aggregated public space data (satellite orbits, catalogs, launches) as an AI-friendly CLI",
+	"type": "module",
+	"license": "MIT",
+	"main": "./src/cli.ts",
+	"bin": {
+		"spacecli": "./dist/cli.js"
+	},
+	"files": [
+		"dist"
+	],
+	"engines": {
+		"node": ">=20"
+	},
+	"keywords": [
+		"space",
+		"satellite",
+		"tle",
+		"omm",
+		"celestrak",
+		"launches",
+		"cli",
+		"ai-agents"
+	],
+	"dependencies": {
+		"commander": "^14.0.0",
+		"neverthrow": "^8.2.0",
+		"zod": "^4.1.12"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.16",
+		"@types/bun": "^1.2.0",
+		"typescript": "^5.9.2"
+	}
+}

@@ -1,0 +1,84 @@
+export abstract class SpaceCliError extends Error {
+	abstract readonly code: string;
+	abstract readonly exitCode: number;
+
+	toJSON(): Record<string, unknown> {
+		return {
+			code: this.code,
+			message: this.message,
+		};
+	}
+}
+
+export class NotFoundError extends SpaceCliError {
+	readonly code = "NOT_FOUND";
+	readonly exitCode = 2;
+}
+
+export class UpstreamHttpError extends SpaceCliError {
+	readonly code = "UPSTREAM_HTTP";
+	readonly exitCode = 3;
+
+	constructor(
+		readonly source: string,
+		readonly status: number,
+	) {
+		super(`${source} responded with HTTP ${status}`);
+	}
+
+	override toJSON(): Record<string, unknown> {
+		return { ...super.toJSON(), source: this.source, status: this.status };
+	}
+}
+
+export class NetworkError extends SpaceCliError {
+	readonly code = "NETWORK";
+	readonly exitCode = 3;
+
+	constructor(
+		readonly source: string,
+		cause: unknown,
+	) {
+		super(
+			`network request to ${source} failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+		);
+	}
+
+	override toJSON(): Record<string, unknown> {
+		return { ...super.toJSON(), source: this.source };
+	}
+}
+
+export class CircuitOpenError extends SpaceCliError {
+	readonly code = "CIRCUIT_OPEN";
+	readonly exitCode = 4;
+
+	constructor(
+		readonly source: string,
+		readonly retryAt: string,
+	) {
+		super(
+			`${source} recently returned an error; refusing to query it again until ${retryAt} to respect its usage policy`,
+		);
+	}
+
+	override toJSON(): Record<string, unknown> {
+		return { ...super.toJSON(), source: this.source, retryAt: this.retryAt };
+	}
+}
+
+export class UpstreamSchemaError extends SpaceCliError {
+	readonly code = "UPSTREAM_SCHEMA";
+	readonly exitCode = 5;
+
+	constructor(
+		readonly source: string,
+		detail: string,
+	) {
+		super(`${source} returned data with an unexpected shape: ${detail}`);
+	}
+
+	override toJSON(): Record<string, unknown> {
+		return { ...super.toJSON(), source: this.source };
+	}
+}

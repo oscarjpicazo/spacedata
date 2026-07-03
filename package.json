@@ -1,0 +1,12 @@
+{
+	"name": "@spacecli/monorepo",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"workspaces": [
+		"packages/*"
+	],
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.16"
+	}
+}
