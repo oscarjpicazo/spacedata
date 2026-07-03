@@ -5,7 +5,7 @@ import packageJson from "../package.json";
 import { defaultCacheDir, FileCache } from "./core/file-cache";
 import { emit, fail } from "./core/output";
 import type { SourceResult } from "./core/source-fetch";
-import type { SpaceCliError } from "./errors/space-cli-error";
+import type { SpaceDataError } from "./errors/spacedata-error";
 import { fetchByCatalogNumber, searchByName } from "./sources/celestrak.source";
 import { fetchUpcomingLaunches } from "./sources/launch-library.source";
 
@@ -18,7 +18,7 @@ interface GlobalOptions {
 const program = new Command();
 
 program
-	.name("spacecli")
+	.name("spacedata")
 	.description(
 		"Aggregated public space data (satellite orbits, catalogs, launches) as an AI-friendly CLI.\n" +
 			"Output is always a single JSON document: {ok, source, cached, fetchedAt, data} on stdout,\n" +
@@ -43,7 +43,7 @@ program
 	.description(
 		"Latest orbital elements (GP/OMM) for one object by NORAD catalog id, " +
 			"with derived perigee/apogee altitude (km), period (min) and semi-major axis. " +
-			"Source: CelesTrak (no API key needed). Example: spacecli tle 25544",
+			"Source: CelesTrak (no API key needed). Example: spacedata tle 25544",
 	)
 	.argument(
 		"<norad-id>",
@@ -62,7 +62,7 @@ sat
 	.command("search")
 	.description(
 		"Search objects by name in the CelesTrak GP catalog. Returns every match with its " +
-			"orbital elements and derived orbit geometry. Example: spacecli sat search STARLINK-32000",
+			"orbital elements and derived orbit geometry. Example: spacedata sat search STARLINK-32000",
 	)
 	.argument("<query>", "object name or name fragment (case-insensitive)")
 	.action(async (query: string, _options: unknown, command: Command) => {
@@ -80,7 +80,7 @@ launches
 	.description(
 		"Upcoming orbital launches with status, provider, rocket, pad and mission. " +
 			"Source: Launch Library 2 (free tier: 15 calls/hour per IP; responses are cached 1h). " +
-			"Example: spacecli launches upcoming --limit 5 --search starlink",
+			"Example: spacedata launches upcoming --limit 5 --search starlink",
 	)
 	.option(
 		"--limit <n>",
@@ -113,7 +113,7 @@ function sourceOptions(globals: GlobalOptions): {
 }
 
 function finish<T>(
-	result: Result<SourceResult<T>, SpaceCliError>,
+	result: Result<SourceResult<T>, SpaceDataError>,
 	pretty: boolean,
 ): void {
 	result.match(

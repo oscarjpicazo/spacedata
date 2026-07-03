@@ -3,9 +3,9 @@ import type { FileCache } from "../core/file-cache";
 import { type SourceResult, sourceFetch } from "../core/source-fetch";
 import { type Launch, launchListSchema } from "../domain/launch.schema";
 import {
-	type SpaceCliError,
+	type SpaceDataError,
 	UpstreamSchemaError,
-} from "../errors/space-cli-error";
+} from "../errors/spacedata-error";
 
 const SOURCE = "launch-library";
 const BASE_URL = "https://ll.thespacedevs.com/2.3.0";
@@ -43,16 +43,16 @@ export interface LaunchLibraryOptions {
 
 export function fetchUpcomingLaunches(
 	options: LaunchLibraryOptions,
-): Promise<Result<SourceResult<LaunchListResult>, SpaceCliError>> {
+): Promise<Result<SourceResult<LaunchListResult>, SpaceDataError>> {
 	const baseUrl =
-		options.baseUrl ?? process.env.SPACECLI_LL2_BASE_URL ?? BASE_URL;
+		options.baseUrl ?? process.env.SPACEDATA_LL2_BASE_URL ?? BASE_URL;
 	const url = new URL(`${baseUrl}/launches/upcoming/`);
 	url.searchParams.set("limit", String(options.limit));
 	if (options.search !== undefined) {
 		url.searchParams.set("search", options.search);
 	}
 
-	const token = options.token ?? process.env.SPACECLI_LL2_TOKEN;
+	const token = options.token ?? process.env.SPACEDATA_LL2_TOKEN;
 
 	return sourceFetch<LaunchListResult>({
 		source: SOURCE,
@@ -69,7 +69,7 @@ export function fetchUpcomingLaunches(
 
 function parseLaunchListBody(
 	body: string,
-): Result<LaunchListResult, SpaceCliError> {
+): Result<LaunchListResult, SpaceDataError> {
 	let json: unknown;
 	try {
 		json = JSON.parse(body);

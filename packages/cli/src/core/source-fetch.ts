@@ -3,9 +3,9 @@ import {
 	CircuitOpenError,
 	NetworkError,
 	NotFoundError,
-	type SpaceCliError,
+	type SpaceDataError,
 	UpstreamHttpError,
-} from "../errors/space-cli-error";
+} from "../errors/spacedata-error";
 import type { FileCache } from "./file-cache";
 
 export interface SourceResult<T> {
@@ -29,7 +29,7 @@ export interface SourceFetchOptions {
 	 */
 	notFoundMessage?: string;
 	/** Parse and validate the raw HTTP body into T (or a domain error). */
-	parseBody: (body: string) => Result<unknown, SpaceCliError>;
+	parseBody: (body: string) => Result<unknown, SpaceDataError>;
 }
 
 /**
@@ -39,7 +39,7 @@ export interface SourceFetchOptions {
  */
 export async function sourceFetch<T>(
 	options: SourceFetchOptions,
-): Promise<Result<SourceResult<T>, SpaceCliError>> {
+): Promise<Result<SourceResult<T>, SpaceDataError>> {
 	const {
 		source,
 		url,

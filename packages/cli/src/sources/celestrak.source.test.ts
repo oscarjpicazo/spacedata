@@ -8,7 +8,7 @@ import {
 	NotFoundError,
 	UpstreamHttpError,
 	UpstreamSchemaError,
-} from "../errors/space-cli-error";
+} from "../errors/spacedata-error";
 import { fetchByCatalogNumber, searchByName } from "./celestrak.source";
 
 const issOmm = {
@@ -38,7 +38,7 @@ afterEach(() => {
 });
 
 function makeCache(): FileCache {
-	return new FileCache(mkdtempSync(join(tmpdir(), "spacecli-celestrak-")));
+	return new FileCache(mkdtempSync(join(tmpdir(), "spacedata-celestrak-")));
 }
 
 function mockFetch(

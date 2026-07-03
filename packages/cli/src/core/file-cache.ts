@@ -31,7 +31,7 @@ export function defaultCacheDir(): string {
 		xdgCacheHome !== undefined && xdgCacheHome !== ""
 			? xdgCacheHome
 			: join(homedir(), ".cache");
-	return join(base, "spacecli");
+	return join(base, "spacedata");
 }
 
 /**

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Subset of a Launch Library 2 (v2.3.0) launch that spacecli exposes. */
+/** Subset of a Launch Library 2 (v2.3.0) launch that spacedata exposes. */
 export const launchSchema = z.object({
 	id: z.string(),
 	name: z.string(),

@@ -1,4 +1,4 @@
-# spacecli
+# spacedata
 
 ## General
 
@@ -11,7 +11,7 @@ Bun monorepo (`packages/*`). One package for now:
 
 | Package | What it does | Stack |
 |---------|-------------|-------|
-| `cli` | The `spacecli` command | TypeScript, commander, Zod, neverthrow |
+| `cli` | The `spacedata` command | TypeScript, commander, Zod, neverthrow |
 
 Planned packages: `mcp` (MCP server reusing the cli's source layer).
 
@@ -30,7 +30,7 @@ Linting: Biome. Results: `neverthrow`. Prefer `undefined` over `null` to represe
 ## Conventions
 
 - **Type intentionality**: every `| undefined` must reflect a real reason (an upstream field that can be absent), never a workaround. Convert upstream `null` to `undefined` explicitly at the source boundary.
-- **Errors**: throw/return classes extending `SpaceCliError` (`packages/cli/src/errors/space-cli-error.ts`), each with a stable `code` and `exitCode`. Never `new Error(...)`.
+- **Errors**: throw/return classes extending `SpaceDataError` (`packages/cli/src/errors/spacedata-error.ts`), each with a stable `code` and `exitCode`. Never `new Error(...)`.
 - **File naming**: kebab-case with dot notation for the type: `celestrak.source.ts`, `omm.schema.ts`, `file-cache.ts`.
 - **Testing**: every change ships with its tests (`bun test`). Sources are tested by mocking `globalThis.fetch`; cover the happy path, cache hit, not-found, breaker open and schema mismatch for every source.
 

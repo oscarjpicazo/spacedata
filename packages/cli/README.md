@@ -1,4 +1,4 @@
-# spacecli
+# spacedata
 
 Aggregated public space data — satellite orbits, catalogs and launches — as a single AI-friendly CLI.
 
@@ -7,18 +7,18 @@ One command vocabulary, always a single JSON document as output, with local cach
 ## Install
 
 ```bash
-npm install -g spacecli
+npm install -g spacedata-cli
 ```
 
 ## Usage
 
 ```bash
-spacecli tle 25544                                  # latest orbital elements for the ISS
-spacecli sat search "ZARYA"                         # search the catalog by name
-spacecli launches upcoming --limit 5                # next 5 orbital launches
-spacecli launches upcoming --search starlink        # filter launches
-spacecli --pretty tle 25544                         # human-readable JSON
-spacecli --fresh tle 25544                          # bypass the local cache
+spacedata tle 25544                                  # latest orbital elements for the ISS
+spacedata sat search "ZARYA"                         # search the catalog by name
+spacedata launches upcoming --limit 5                # next 5 orbital launches
+spacedata launches upcoming --search starlink        # filter launches
+spacedata --pretty tle 25544                         # human-readable JSON
+spacedata --fresh tle 25544                          # bypass the local cache
 ```
 
 `tle` and `sat search` include derived geometry per object: perigee/apogee altitude (km), period (minutes) and semi-major axis, computed from the mean elements.
@@ -33,12 +33,12 @@ Stable, designed for AI agents:
 
 ## Caching
 
-Responses are cached in `~/.cache/spacecli` (override with `--cache-dir` or `XDG_CACHE_HOME`): CelesTrak data for 2 h (its GP update cycle), Launch Library 2 for 1 h (free tier: 15 calls/hour per IP). On any non-200 response the source's circuit breaker opens and spacecli refuses to query it again until the cooldown expires, as the providers' usage policies require.
+Responses are cached in `~/.cache/spacedata` (override with `--cache-dir` or `XDG_CACHE_HOME`): CelesTrak data for 2 h (its GP update cycle), Launch Library 2 for 1 h (free tier: 15 calls/hour per IP). On any non-200 response the source's circuit breaker opens and spacedata refuses to query it again until the cooldown expires, as the providers' usage policies require.
 
 ## Environment variables
 
-- `SPACECLI_LL2_TOKEN` — Launch Library 2 API token (Patreon tiers) for higher rate limits.
-- `SPACECLI_LL2_BASE_URL` — override the LL2 base URL, e.g. `https://lldev.thespacedevs.com/2.3.0` while developing.
+- `SPACEDATA_LL2_TOKEN` — Launch Library 2 API token (Patreon tiers) for higher rate limits.
+- `SPACEDATA_LL2_BASE_URL` — override the LL2 base URL, e.g. `https://lldev.thespacedevs.com/2.3.0` while developing.
 
 ## Data sources & credits
 

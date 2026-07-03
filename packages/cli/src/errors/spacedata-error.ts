@@ -1,4 +1,4 @@
-export abstract class SpaceCliError extends Error {
+export abstract class SpaceDataError extends Error {
 	abstract readonly code: string;
 	abstract readonly exitCode: number;
 
@@ -10,12 +10,12 @@ export abstract class SpaceCliError extends Error {
 	}
 }
 
-export class NotFoundError extends SpaceCliError {
+export class NotFoundError extends SpaceDataError {
 	readonly code = "NOT_FOUND";
 	readonly exitCode = 2;
 }
 
-export class UpstreamHttpError extends SpaceCliError {
+export class UpstreamHttpError extends SpaceDataError {
 	readonly code = "UPSTREAM_HTTP";
 	readonly exitCode = 3;
 
@@ -31,7 +31,7 @@ export class UpstreamHttpError extends SpaceCliError {
 	}
 }
 
-export class NetworkError extends SpaceCliError {
+export class NetworkError extends SpaceDataError {
 	readonly code = "NETWORK";
 	readonly exitCode = 3;
 
@@ -49,7 +49,7 @@ export class NetworkError extends SpaceCliError {
 	}
 }
 
-export class CircuitOpenError extends SpaceCliError {
+export class CircuitOpenError extends SpaceDataError {
 	readonly code = "CIRCUIT_OPEN";
 	readonly exitCode = 4;
 
@@ -67,7 +67,7 @@ export class CircuitOpenError extends SpaceCliError {
 	}
 }
 
-export class UpstreamSchemaError extends SpaceCliError {
+export class UpstreamSchemaError extends SpaceDataError {
 	readonly code = "UPSTREAM_SCHEMA";
 	readonly exitCode = 5;
 

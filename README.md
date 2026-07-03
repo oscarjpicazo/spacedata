@@ -1,8 +1,8 @@
-# spacecli
+# spacedata
 
 Aggregated public space data — satellite orbits, catalogs and launches — as a single AI-friendly CLI.
 
-Instead of teaching an agent (or yourself) four different APIs, query languages and data formats, `spacecli` exposes one command vocabulary and always answers with a single JSON document. Caching and circuit breakers are built in so heavy automated use never violates the upstream sources' usage policies.
+Instead of teaching an agent (or yourself) four different APIs, query languages and data formats, `spacedata` exposes one command vocabulary and always answers with a single JSON document. Caching and circuit breakers are built in so heavy automated use never violates the upstream sources' usage policies.
 
 ## Status
 
@@ -11,12 +11,12 @@ Instead of teaching an agent (or yourself) four different APIs, query languages 
 ## Usage
 
 ```bash
-spacecli tle 25544                                  # latest orbital elements for the ISS
-spacecli sat search STARLINK-32000                  # search the catalog by name
-spacecli launches upcoming --limit 5                # next 5 orbital launches
-spacecli launches upcoming --search starlink        # filter launches
-spacecli --pretty tle 25544                         # human-readable JSON
-spacecli --fresh tle 25544                          # bypass the local cache
+spacedata tle 25544                                  # latest orbital elements for the ISS
+spacedata sat search STARLINK-32000                  # search the catalog by name
+spacedata launches upcoming --limit 5                # next 5 orbital launches
+spacedata launches upcoming --search starlink        # filter launches
+spacedata --pretty tle 25544                         # human-readable JSON
+spacedata --fresh tle 25544                          # bypass the local cache
 ```
 
 ### Output contract
@@ -31,19 +31,19 @@ Stable, designed for AI agents:
 
 ### Caching and upstream policies
 
-Responses are cached in `~/.cache/spacecli` (override with `--cache-dir` or `XDG_CACHE_HOME`):
+Responses are cached in `~/.cache/spacedata` (override with `--cache-dir` or `XDG_CACHE_HOME`):
 
 | Source | TTL | Why |
 |---|---|---|
 | CelesTrak | 2 h | GP data updates every 2 h; policy asks for one download per cycle |
 | Launch Library 2 | 1 h | Free tier allows 15 calls/hour per IP |
 
-On any non-200 response the source's circuit breaker opens and `spacecli` refuses to query it again until the cooldown expires (CelesTrak's M2M policy requires stopping immediately on errors; ignoring it gets your IP firewalled).
+On any non-200 response the source's circuit breaker opens and `spacedata` refuses to query it again until the cooldown expires (CelesTrak's M2M policy requires stopping immediately on errors; ignoring it gets your IP firewalled).
 
 ### Environment variables
 
-- `SPACECLI_LL2_TOKEN` — Launch Library 2 API token (Patreon tiers) for higher rate limits.
-- `SPACECLI_LL2_BASE_URL` — override the LL2 base URL, e.g. `https://lldev.thespacedevs.com/2.3.0` (no rate limits, stale data) while developing.
+- `SPACEDATA_LL2_TOKEN` — Launch Library 2 API token (Patreon tiers) for higher rate limits.
+- `SPACEDATA_LL2_BASE_URL` — override the LL2 base URL, e.g. `https://lldev.thespacedevs.com/2.3.0` (no rate limits, stale data) while developing.
 
 ## Development
 

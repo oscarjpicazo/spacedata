@@ -7,7 +7,7 @@ import {
 	CircuitOpenError,
 	UpstreamHttpError,
 	UpstreamSchemaError,
-} from "../errors/space-cli-error";
+} from "../errors/spacedata-error";
 import { fetchUpcomingLaunches } from "./launch-library.source";
 
 const launchFixture = {
@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 function makeCache(): FileCache {
-	return new FileCache(mkdtempSync(join(tmpdir(), "spacecli-ll2-")));
+	return new FileCache(mkdtempSync(join(tmpdir(), "spacedata-ll2-")));
 }
 
 function mockFetch(

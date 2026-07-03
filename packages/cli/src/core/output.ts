@@ -1,4 +1,4 @@
-import type { SpaceCliError } from "../errors/space-cli-error";
+import type { SpaceDataError } from "../errors/spacedata-error";
 import type { SourceResult } from "./source-fetch";
 
 /**
@@ -13,7 +13,7 @@ export function emit<T>(result: SourceResult<T>, pretty: boolean): void {
 	process.stdout.write(`${JSON.stringify(payload, null, pretty ? 2 : 0)}\n`);
 }
 
-export function fail(error: SpaceCliError, pretty: boolean): never {
+export function fail(error: SpaceDataError, pretty: boolean): never {
 	const payload = { ok: false, error: error.toJSON() };
 	process.stderr.write(`${JSON.stringify(payload, null, pretty ? 2 : 0)}\n`);
 	process.exit(error.exitCode);

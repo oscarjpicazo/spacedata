@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { FileCache } from "./file-cache";
 
 function makeCache(): FileCache {
-	return new FileCache(mkdtempSync(join(tmpdir(), "spacecli-cache-")));
+	return new FileCache(mkdtempSync(join(tmpdir(), "spacedata-cache-")));
 }
 
 describe("FileCache", () => {

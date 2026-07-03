@@ -5,9 +5,9 @@ import { type DerivedOrbit, deriveOrbit } from "../domain/derive";
 import { type Omm, ommArraySchema } from "../domain/omm.schema";
 import {
 	NotFoundError,
-	type SpaceCliError,
+	type SpaceDataError,
 	UpstreamSchemaError,
-} from "../errors/space-cli-error";
+} from "../errors/spacedata-error";
 
 const SOURCE = "celestrak";
 const GP_URL = "https://celestrak.org/NORAD/elements/gp.php";
@@ -41,21 +41,21 @@ export interface CelestrakOptions {
 export function fetchByCatalogNumber(
 	noradId: number,
 	options: CelestrakOptions,
-): Promise<Result<SourceResult<SatelliteRecord[]>, SpaceCliError>> {
+): Promise<Result<SourceResult<SatelliteRecord[]>, SpaceDataError>> {
 	return fetchGp({ CATNR: String(noradId) }, options);
 }
 
 export function searchByName(
 	query: string,
 	options: CelestrakOptions,
-): Promise<Result<SourceResult<SatelliteRecord[]>, SpaceCliError>> {
+): Promise<Result<SourceResult<SatelliteRecord[]>, SpaceDataError>> {
 	return fetchGp({ NAME: query }, options);
 }
 
 async function fetchGp(
 	params: Record<string, string>,
 	options: CelestrakOptions,
-): Promise<Result<SourceResult<SatelliteRecord[]>, SpaceCliError>> {
+): Promise<Result<SourceResult<SatelliteRecord[]>, SpaceDataError>> {
 	const url = new URL(options.baseUrl ?? GP_URL);
 	for (const [key, value] of Object.entries(params)) {
 		url.searchParams.set(key, value);
@@ -74,7 +74,7 @@ async function fetchGp(
 	});
 }
 
-function parseGpBody(body: string): Result<SatelliteRecord[], SpaceCliError> {
+function parseGpBody(body: string): Result<SatelliteRecord[], SpaceDataError> {
 	// CelesTrak answers HTTP 200 with a plain-text sentinel when the query
 	// matches no object, instead of an empty JSON array.
 	if (body.startsWith("No GP data found")) {

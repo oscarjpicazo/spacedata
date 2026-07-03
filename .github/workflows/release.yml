@@ -2,7 +2,7 @@ name: Release
 
 # Publishes the cli package to npm when a version tag (v*) is pushed.
 # Requires the NPM_TOKEN repository secret (npm granular token with
-# read/write access to the spacecli package).
+# read/write access to the spacedata-cli package).
 on:
   push:
     tags: ["v*"]
