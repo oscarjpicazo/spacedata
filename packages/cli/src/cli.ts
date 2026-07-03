@@ -46,6 +46,24 @@ program
 		"--cache-dir <dir>",
 		"directory for the local cache",
 		defaultCacheDir(),
+	)
+	.addHelpText(
+		"after",
+		`
+Examples:
+  spacedata tle 25544                         orbital elements + perigee/apogee/period (ISS)
+  spacedata sat search "ZARYA"                find objects by name
+  spacedata sat catalog 25544                 catalog record: type, status, owner, launch, RCS
+  spacedata conjunctions --limit 10           closest upcoming approaches (public SOCRATES data)
+  spacedata launches upcoming --search ariane upcoming launches, filtered
+  spacedata --pretty tle 25544                human-readable JSON
+
+Only 'sat history', 'reentries' and 'conjunctions --source spacetrack' need a free
+Space-Track account (SPACEDATA_SPACETRACK_IDENTITY / SPACEDATA_SPACETRACK_PASSWORD);
+everything else works with no account or API key.
+
+Exit codes: 0 ok · 1 usage · 2 not found · 3 upstream/network · 4 cooldown/rate limit ·
+5 unexpected upstream schema · 6 missing/rejected credentials`,
 	);
 
 program

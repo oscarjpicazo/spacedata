@@ -31,7 +31,32 @@ spacedata reentries --limit 10                       # re-entry predictions (TIP
 spacedata conjunctions --source spacetrack           # official public CDMs instead of SOCRATES
 ```
 
-### Output contract
+### Using with AI agents
+
+`spacedata` is designed to be driven by AI agents: single JSON document per invocation, semantic exit codes, no interactive prompts, and built-in caching/rate limiting so an agent in a loop can never get you banned from an upstream source.
+
+For Claude Code, add this to your `~/.claude/CLAUDE.md` (or a project `CLAUDE.md`); other agents (Cursor, etc.) have equivalent instruction files:
+
+```markdown
+- `spacedata` — CLI for public space data (no API keys needed). Use it via the shell
+  for anything about satellites, orbits, conjunctions or launches:
+  `spacedata tle <norad-id>`, `spacedata sat search <name>`, `spacedata sat catalog <norad-id>`,
+  `spacedata conjunctions [--norad id]`, `spacedata launches upcoming [--search text]`.
+  Always outputs one JSON document; exit 2 = not found. Run `spacedata --help` for details.
+```
+
+Example output (`spacedata tle 25544`):
+
+```json
+{"ok":true,"source":"celestrak","cached":false,"fetchedAt":"2026-07-03T14:20:17.278Z",
+ "data":[{"noradId":25544,"name":"ISS (ZARYA)","internationalDesignator":"1998-067A",
+ "epoch":"2026-07-01T12:11:46.289760","meanMotionRevPerDay":15.49503254,
+ "eccentricity":0.00042241,"inclinationDeg":51.6311,
+ "derived":{"semiMajorAxisKm":6796.315,"perigeeAltitudeKm":415.307,
+ "apogeeAltitudeKm":421.049,"periodMinutes":92.933}}]}
+```
+
+## Output contract
 
 Stable, designed for AI agents:
 
