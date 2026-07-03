@@ -1,6 +1,6 @@
 {
 	"name": "spacedata",
-	"version": "0.2.1",
+	"version": "0.3.0",
 	"description": "Aggregated public space data (satellite orbits, catalogs, launches) as an AI-friendly CLI",
 	"type": "module",
 	"license": "MIT",
@@ -29,6 +29,7 @@
 		"ai-agents"
 	],
 	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.29.0",
 		"commander": "^14.0.0",
 		"neverthrow": "^8.2.0",
 		"zod": "^4.1.12"
@@ -37,5 +38,6 @@
 		"@biomejs/biome": "^2.4.16",
 		"@types/bun": "^1.2.0",
 		"typescript": "^5.9.2"
-	}
+	},
+	"mcpName": "io.github.oscarjpicazo/spacedata"
 }

@@ -241,6 +241,18 @@ launches
 		},
 	);
 
+program
+	.command("serve")
+	.description(
+		"Run as an MCP (Model Context Protocol) server over stdio, exposing every data source " +
+			"as MCP tools for Claude Desktop, Claude Code, Cursor and other MCP clients. " +
+			"Same caching and rate-limit protection as the CLI commands.",
+	)
+	.action(async () => {
+		const { serveMcp } = await import("./mcp/mcp-server");
+		await serveMcp(packageJson.version);
+	});
+
 function sourceOptions(globals: GlobalOptions): {
 	cache: FileCache;
 	fresh: boolean;

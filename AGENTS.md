@@ -13,7 +13,7 @@ Bun monorepo (`packages/*`). One package for now:
 |---------|-------------|-------|
 | `cli` | The `spacedata` command | TypeScript, commander, Zod, neverthrow |
 
-Planned packages: `mcp` (MCP server reusing the cli's source layer).
+The MCP server lives inside the cli package (`spacedata serve`, `src/mcp/mcp-server.ts`): a lean 7-tool surface over stdio that reuses the source layer verbatim. Tool results carry the same `{ok, source, cached, fetchedAt, data}` / `{ok: false, error}` envelopes as the CLI; new sources should be exposed in both surfaces. In serve mode stdout belongs to the MCP transport — never write anything else to it.
 
 Linting: Biome. Results: `neverthrow`. Prefer `undefined` over `null` to represent absence/empty state.
 

@@ -31,7 +31,34 @@ spacedata reentries --limit 10                       # re-entry predictions (TIP
 spacedata conjunctions --source spacetrack           # official public CDMs instead of SOCRATES
 ```
 
-### Using with AI agents
+### MCP server
+
+`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Seven tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
+
+Claude Code:
+
+```bash
+claude mcp add spacedata -- npx -y spacedata serve
+```
+
+Claude Desktop (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "spacedata": {
+      "command": "npx",
+      "args": ["-y", "spacedata", "serve"]
+    }
+  }
+}
+```
+
+To enable the two Space-Track tools, add `"env": {"SPACEDATA_SPACETRACK_IDENTITY": "...", "SPACEDATA_SPACETRACK_PASSWORD": "..."}` to the server entry.
+
+Tip: if your agent can run shell commands (like Claude Code), the plain CLI is cheaper in context tokens than loading MCP tool schemas — `serve` shines in clients without a shell (Claude Desktop, claude.ai).
+
+## Using with AI agents
 
 `spacedata` is designed to be driven by AI agents: single JSON document per invocation, semantic exit codes, no interactive prompts, and built-in caching/rate limiting so an agent in a loop can never get you banned from an upstream source.
 
