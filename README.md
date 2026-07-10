@@ -8,7 +8,7 @@ Instead of teaching an agent (or yourself) four different APIs, query languages 
 
 ## Status
 
-**v0.3** — CelesTrak (orbital elements, catalog search) and Launch Library 2 (upcoming launches) with no account needed, plus Space-Track (SATCAT, element history, conjunctions, re-entry predictions) using your own free account. New in 0.3: local SGP4 propagation — live positions, pass predictions with optical visibility, and what's-overhead queries, no extra API or account. Planned next: ESA DISCOSweb (physical metadata) and a cross-source `sat info`.
+**v0.4** — CelesTrak (orbital elements, catalog search) and Launch Library 2 (upcoming launches) with no account needed, plus Space-Track (SATCAT, element history, conjunctions, re-entry predictions) using your own free account. New in 0.4: local SGP4 propagation — live positions, pass predictions with optical visibility, and what's-overhead queries, no extra API or account. Planned next: ESA DISCOSweb (physical metadata) and a cross-source `sat info`.
 
 ## Usage
 
