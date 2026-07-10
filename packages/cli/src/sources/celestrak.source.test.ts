@@ -12,6 +12,7 @@ import {
 import {
 	fetchByCatalogNumber,
 	fetchCatalogRecord,
+	fetchGroup,
 	searchByName,
 } from "./celestrak.source";
 
@@ -212,6 +213,73 @@ describe("celestrak source", () => {
 		});
 
 		expect(result._unsafeUnwrapErr()).toBeInstanceOf(NotFoundError);
+	});
+
+	test("fetches every GP record of a group", async () => {
+		const fetchMock = mockFetch((url) => {
+			expect(url).toContain("GROUP=visual");
+			expect(url).toContain("FORMAT=json");
+			return new Response(
+				JSON.stringify([issOmm, { ...issOmm, NORAD_CAT_ID: 20580 }]),
+				{ status: 200 },
+			);
+		});
+
+		const result = await fetchGroup("visual", {
+			cache: makeCache(),
+			fresh: false,
+		});
+
+		const value = result._unsafeUnwrap();
+		expect(value.source).toBe("celestrak");
+		expect(value.data).toHaveLength(2);
+		expect(value.data[1].noradId).toBe(20580);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("serves a repeated group query from cache", async () => {
+		const fetchMock = mockFetch(
+			() => new Response(JSON.stringify([issOmm]), { status: 200 }),
+		);
+		const cache = makeCache();
+
+		await fetchGroup("visual", { cache, fresh: false });
+		const second = await fetchGroup("visual", { cache, fresh: false });
+
+		expect(second._unsafeUnwrap().cached).toBe(true);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("maps an unknown group's 'Invalid query' sentinel to NotFoundError", async () => {
+		mockFetch(
+			() =>
+				new Response(
+					'Invalid query: "GROUP=no-such-group&FORMAT=json" (GROUP=no-such-group not found)',
+					{ status: 200 },
+				),
+		);
+
+		const result = await fetchGroup("no-such-group", {
+			cache: makeCache(),
+			fresh: false,
+		});
+
+		const error = result._unsafeUnwrapErr();
+		expect(error).toBeInstanceOf(NotFoundError);
+		expect(error.message).toContain('no CelesTrak group named "no-such-group"');
+	});
+
+	test("an 'Invalid query' body on a non-group query stays a schema error", async () => {
+		// For CATNR/NAME an "Invalid query" answer means the request contract
+		// broke — it must not be mistaken for a benign no-match.
+		mockFetch(() => new Response("Invalid query: ...", { status: 200 }));
+
+		const result = await fetchByCatalogNumber(25544, {
+			cache: makeCache(),
+			fresh: false,
+		});
+
+		expect(result._unsafeUnwrapErr()).toBeInstanceOf(UpstreamSchemaError);
 	});
 
 	test("rejects payloads that do not match the OMM schema", async () => {

@@ -6,8 +6,14 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { Result } from "neverthrow";
 import { z } from "zod";
+import {
+	computeOverhead,
+	computePasses,
+	computePosition,
+} from "../compute/propagation.compute";
 import { defaultCacheDir, FileCache } from "../core/file-cache";
 import type { SourceResult } from "../core/source-fetch";
+import { type Observer, parseInstant } from "../domain/propagation";
 import type { SpaceDataError } from "../errors/spacedata-error";
 import {
 	fetchByCatalogNumber,
@@ -24,6 +30,49 @@ import {
 
 const noradIdSchema = z.number().int().positive();
 const limitSchema = z.number().int().min(1).max(100);
+const latitudeSchema = z.number().min(-90).max(90);
+const longitudeSchema = z.number().min(-180).max(180);
+const altitudeMSchema = z.number().min(-500).max(10000);
+const minElevationSchema = z.number().min(0).max(90);
+// parseInstant treats zone-less date-times as UTC — never host-local time.
+const isoTimeSchema = z
+	.string()
+	.refine((value) => parseInstant(value) !== undefined, {
+		message: "must be an ISO 8601 timestamp (e.g. 2026-07-10T21:30:00Z)",
+	});
+
+const observerArgsSchema = {
+	latitude: latitudeSchema,
+	longitude: longitudeSchema,
+	altitudeM: altitudeMSchema.optional(),
+};
+
+function toObserver(parsed: {
+	latitude: number;
+	longitude: number;
+	altitudeM?: number;
+}): Observer {
+	return {
+		latitudeDeg: parsed.latitude,
+		longitudeDeg: parsed.longitude,
+		altitudeM: parsed.altitudeM ?? 0,
+	};
+}
+
+const observerProperties = {
+	latitude: {
+		type: "number",
+		description: "observer latitude in decimal degrees (-90 to 90)",
+	},
+	longitude: {
+		type: "number",
+		description: "observer longitude in decimal degrees (-180 to 180)",
+	},
+	altitudeM: {
+		type: "number",
+		description: "observer altitude above sea level in meters (default 0)",
+	},
+} as const;
 
 interface ToolDefinition {
 	name: string;
@@ -105,6 +154,140 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
 		handler: (args, cache) => {
 			const parsed = z.object({ noradId: noradIdSchema }).parse(args);
 			return fetchCatalogRecord(parsed.noradId, { cache, fresh: false });
+		},
+	},
+	{
+		name: "get_satellite_position",
+		description:
+			"Where a satellite is right now (or at a given instant): latitude, longitude, altitude (km), " +
+			"speed (km/s) and whether it is sunlit. Propagated locally with SGP4 from the latest public " +
+			"CelesTrak elements; no account needed. The ISS is NORAD id 25544.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				noradId: { type: "integer", description: "NORAD catalog id" },
+				at: {
+					type: "string",
+					description:
+						"instant to propagate to, ISO 8601 (e.g. 2026-07-10T21:30:00Z; UTC assumed when no zone is given); default: now",
+				},
+			},
+			required: ["noradId"],
+		},
+		handler: (args, cache) => {
+			const parsed = z
+				.object({ noradId: noradIdSchema, at: isoTimeSchema.optional() })
+				.parse(args);
+			return computePosition(
+				parsed.noradId,
+				parsed.at === undefined ? undefined : parseInstant(parsed.at),
+				{ cache, fresh: false },
+			);
+		},
+	},
+	{
+		name: "get_satellite_passes",
+		description:
+			"Upcoming passes of a satellite over a ground location: AOS/culmination/LOS times (UTC) and " +
+			"azimuths, max elevation, duration, and whether each pass is optically visible from the " +
+			"ground (satellite sunlit while the observer's sky is dark). Answers questions like 'when " +
+			"can I see the ISS from Madrid?' — ask the user for their location if unknown. Computed " +
+			"locally with SGP4 from public CelesTrak elements; no account needed.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				noradId: { type: "integer", description: "NORAD catalog id" },
+				...observerProperties,
+				days: {
+					type: "integer",
+					description: "search window in days, 1-10 (default 3)",
+				},
+				minElevationDeg: {
+					type: "number",
+					description:
+						"elevation mask in degrees, 0-90 (default 10): a pass spans the time above this elevation, with AOS/LOS at its crossings",
+				},
+				visibleOnly: {
+					type: "boolean",
+					description: "only report optically visible passes (default false)",
+				},
+			},
+			required: ["noradId", "latitude", "longitude"],
+		},
+		handler: (args, cache) => {
+			const parsed = z
+				.object({
+					noradId: noradIdSchema,
+					...observerArgsSchema,
+					days: z.number().int().min(1).max(10).optional(),
+					minElevationDeg: minElevationSchema.optional(),
+					visibleOnly: z.boolean().optional(),
+				})
+				.parse(args);
+			return computePasses(
+				parsed.noradId,
+				toObserver(parsed),
+				{
+					days: parsed.days ?? 3,
+					minElevationDeg: parsed.minElevationDeg ?? 10,
+					visibleOnly: parsed.visibleOnly ?? false,
+				},
+				{ cache, fresh: false },
+			);
+		},
+	},
+	{
+		name: "get_satellites_overhead",
+		description:
+			"Which satellites of a CelesTrak group are above a ground location right now, sorted by " +
+			"elevation, with azimuth, range and whether each is sunlit. Default group 'visual' (the " +
+			"brightest objects — best for 'what can I see above me?'); other groups include 'stations', " +
+			"'starlink', 'gnss' and 'active' (the full catalog, heavy). Computed locally with SGP4 from " +
+			"public CelesTrak elements; no account needed.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				...observerProperties,
+				group: {
+					type: "string",
+					description: "CelesTrak group name (default 'visual')",
+				},
+				minElevationDeg: {
+					type: "number",
+					description:
+						"minimum elevation over the horizon in degrees, 0-90 (default 10)",
+				},
+				limit: {
+					type: "integer",
+					description: "maximum satellites to return, 1-500 (default 50)",
+				},
+			},
+			required: ["latitude", "longitude"],
+		},
+		handler: (args, cache) => {
+			const parsed = z
+				.object({
+					...observerArgsSchema,
+					group: z
+						.string()
+						.regex(
+							/^[a-z0-9-]+$/i,
+							"must be a CelesTrak group name (letters, digits and dashes)",
+						)
+						.optional(),
+					minElevationDeg: minElevationSchema.optional(),
+					limit: z.number().int().min(1).max(500).optional(),
+				})
+				.parse(args);
+			return computeOverhead(
+				toObserver(parsed),
+				{
+					group: parsed.group?.toLowerCase() ?? "visual",
+					minElevationDeg: parsed.minElevationDeg ?? 10,
+					limit: parsed.limit ?? 50,
+				},
+				{ cache, fresh: false },
+			);
 		},
 	},
 	{

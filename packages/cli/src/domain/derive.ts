@@ -1,3 +1,5 @@
+import { round } from "./round";
+
 const MU_EARTH_KM3_S2 = 398600.4418;
 const EARTH_EQUATORIAL_RADIUS_KM = 6378.137;
 const SECONDS_PER_DAY = 86400;
@@ -32,8 +34,4 @@ export function deriveOrbit(
 		),
 		periodMinutes: round((24 * 60) / meanMotionRevPerDay),
 	};
-}
-
-function round(value: number): number {
-	return Math.round(value * 1000) / 1000;
 }

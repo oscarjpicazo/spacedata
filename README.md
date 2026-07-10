@@ -2,17 +2,21 @@
 
 [![CI](https://github.com/oscarjpicazo/spacedata/actions/workflows/ci.yml/badge.svg)](https://github.com/oscarjpicazo/spacedata/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/spacedata)](https://www.npmjs.com/package/spacedata) [![license](https://img.shields.io/npm/l/spacedata)](LICENSE)
 
-Aggregated public space data — satellite orbits, catalogs and launches — as a single AI-friendly CLI.
+Aggregated public space data — satellite positions, passes, orbits, catalogs and launches — as a single AI-friendly CLI.
 
 Instead of teaching an agent (or yourself) four different APIs, query languages and data formats, `spacedata` exposes one command vocabulary and always answers with a single JSON document. Caching and circuit breakers are built in so heavy automated use never violates the upstream sources' usage policies.
 
 ## Status
 
-**v0.2** — CelesTrak (orbital elements, catalog search) and Launch Library 2 (upcoming launches) with no account needed, plus Space-Track (SATCAT, element history, conjunctions, re-entry predictions) using your own free account. Planned next: ESA DISCOSweb (physical metadata) and a cross-source `sat info`.
+**v0.3** — CelesTrak (orbital elements, catalog search) and Launch Library 2 (upcoming launches) with no account needed, plus Space-Track (SATCAT, element history, conjunctions, re-entry predictions) using your own free account. New in 0.3: local SGP4 propagation — live positions, pass predictions with optical visibility, and what's-overhead queries, no extra API or account. Planned next: ESA DISCOSweb (physical metadata) and a cross-source `sat info`.
 
 ## Usage
 
 ```bash
+spacedata position 25544                             # where is the ISS right now (lat/lon/alt, sunlit?)
+spacedata passes 25544 --lat 40.42 --lon -3.70       # when does the ISS pass over Madrid (next 3 days)
+spacedata passes 25544 --lat 40.42 --lon -3.70 --visible-only   # only passes you can actually see
+spacedata overhead --lat 40.42 --lon -3.70           # bright satellites above that spot right now
 spacedata tle 25544                                  # latest orbital elements for the ISS
 spacedata sat search STARLINK-32000                  # search the catalog by name
 spacedata launches upcoming --limit 5                # next 5 orbital launches
@@ -22,6 +26,8 @@ spacedata --fresh tle 25544                          # bypass the local cache
 spacedata sat catalog 25544                          # full SATCAT record: type, status, owner, launch, RCS
 spacedata conjunctions --limit 20                    # upcoming close approaches (CelesTrak SOCRATES)
 ```
+
+`position`, `passes` and `overhead` are computed locally with SGP4 ([satellite.js](https://github.com/shashwatak/satellite-js)) from the latest CelesTrak elements — pass predictions include AOS/culmination/LOS times, azimuths, max elevation and whether each pass is *optically visible* (satellite sunlit while your sky is dark).
 
 Two datasets only exist behind a free [Space-Track](https://www.space-track.org) account (set `SPACEDATA_SPACETRACK_IDENTITY` and `SPACEDATA_SPACETRACK_PASSWORD`):
 
@@ -33,7 +39,7 @@ spacedata conjunctions --source spacetrack           # official public CDMs inst
 
 ### MCP server
 
-`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Seven tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
+`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Ten tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_satellite_position`, `get_satellite_passes`, `get_satellites_overhead`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
 
 Claude Code:
 
@@ -66,7 +72,9 @@ For Claude Code, add this to your `~/.claude/CLAUDE.md` (or a project `CLAUDE.md
 
 ```markdown
 - `spacedata` — CLI for public space data (no API keys needed). Use it via the shell
-  for anything about satellites, orbits, conjunctions or launches:
+  for anything about satellites, orbits, passes, conjunctions or launches:
+  `spacedata position <norad-id>` (live location), `spacedata passes <norad-id> --lat .. --lon ..`
+  (when it flies over, incl. visibility), `spacedata overhead --lat .. --lon ..` (what's above),
   `spacedata tle <norad-id>`, `spacedata sat search <name>`, `spacedata sat catalog <norad-id>`,
   `spacedata conjunctions [--norad id]`, `spacedata launches upcoming [--search text]`.
   Always outputs one JSON document; exit 2 = not found. Run `spacedata --help` for details.
@@ -89,9 +97,9 @@ Stable, designed for AI agents:
 
 - **stdout**: one JSON document — `{ok: true, source, cached, fetchedAt, data}`
 - **stderr**: one JSON document — `{ok: false, error: {code, message, ...}}`
-- **exit codes**: `0` ok · `1` usage error · `2` not found · `3` upstream/network error · `4` circuit open or rate limited · `5` unexpected upstream schema · `6` missing or rejected credentials
+- **exit codes**: `0` ok · `1` usage error · `2` not found · `3` upstream/network error · `4` circuit open or rate limited · `5` unexpected upstream schema · `6` missing or rejected credentials · `7` computation failed
 
-`tle` and `sat search` include derived geometry per object: perigee/apogee altitude (km), period (minutes) and semi-major axis, computed from the mean elements.
+`tle` and `sat search` include derived geometry per object: perigee/apogee altitude (km), period (minutes) and semi-major axis, computed from the mean elements. Locally computed results (`position`, `passes`, `overhead`) report `source: "celestrak+sgp4"` plus the element epoch and age, and warn when element age degrades SGP4 accuracy.
 
 ### Caching and upstream policies
 
@@ -130,3 +138,4 @@ cd packages/cli && bun src/cli.ts tle 25544
 
 - Orbital data: [CelesTrak](https://celestrak.org) (Dr. T.S. Kelso)
 - Launch data: [Launch Library 2](https://thespacedevs.com/llapi) by The Space Devs
+- SGP4 propagation: [satellite.js](https://github.com/shashwatak/satellite-js)
