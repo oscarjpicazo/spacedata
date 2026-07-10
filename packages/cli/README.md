@@ -1,6 +1,6 @@
 # spacedata
 
-Aggregated public space data — satellite orbits, catalogs and launches — as a single AI-friendly CLI.
+Aggregated public space data — satellite positions, passes, orbits, catalogs and launches — as a single AI-friendly CLI.
 
 One command vocabulary, always a single JSON document as output, with local caching and circuit breakers built in so heavy automated use (by humans or AI agents) never violates the upstream sources' usage policies. No API keys or accounts needed.
 
@@ -13,6 +13,10 @@ npm install -g spacedata
 ## Usage
 
 ```bash
+spacedata position 25544                             # where is the ISS right now (lat/lon/alt, sunlit?)
+spacedata passes 25544 --lat 40.42 --lon -3.70       # when does the ISS pass over Madrid (next 3 days)
+spacedata passes 25544 --lat 40.42 --lon -3.70 --visible-only   # only passes you can actually see
+spacedata overhead --lat 40.42 --lon -3.70           # bright satellites above that spot right now
 spacedata tle 25544                                  # latest orbital elements for the ISS
 spacedata sat search "ZARYA"                         # search the catalog by name
 spacedata launches upcoming --limit 5                # next 5 orbital launches
@@ -20,6 +24,8 @@ spacedata launches upcoming --search starlink        # filter launches
 spacedata --pretty tle 25544                         # human-readable JSON
 spacedata --fresh tle 25544                          # bypass the local cache
 ```
+
+`position`, `passes` and `overhead` are computed locally with SGP4 from the latest CelesTrak elements — pass predictions include AOS/culmination/LOS times, azimuths, max elevation and whether each pass is *optically visible* (satellite sunlit while your sky is dark).
 
 ```bash
 spacedata sat catalog 25544                          # full SATCAT record: type, status, owner, launch, RCS
@@ -39,7 +45,7 @@ spacedata conjunctions --source spacetrack           # official public CDMs inst
 
 ## MCP server
 
-`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Seven tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
+`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Ten tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_satellite_position`, `get_satellite_passes`, `get_satellites_overhead`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
 
 Claude Code:
 
@@ -72,7 +78,9 @@ For Claude Code, add this to your `~/.claude/CLAUDE.md` (or a project `CLAUDE.md
 
 ```markdown
 - `spacedata` — CLI for public space data (no API keys needed). Use it via the shell
-  for anything about satellites, orbits, conjunctions or launches:
+  for anything about satellites, orbits, passes, conjunctions or launches:
+  `spacedata position <norad-id>` (live location), `spacedata passes <norad-id> --lat .. --lon ..`
+  (when it flies over, incl. visibility), `spacedata overhead --lat .. --lon ..` (what's above),
   `spacedata tle <norad-id>`, `spacedata sat search <name>`, `spacedata sat catalog <norad-id>`,
   `spacedata conjunctions [--norad id]`, `spacedata launches upcoming [--search text]`.
   Always outputs one JSON document; exit 2 = not found. Run `spacedata --help` for details.
@@ -95,7 +103,7 @@ Stable, designed for AI agents:
 
 - **stdout**: one JSON document — `{ok: true, source, cached, fetchedAt, data}`
 - **stderr**: one JSON document — `{ok: false, error: {code, message, ...}}`
-- **exit codes**: `0` ok · `1` usage error · `2` not found · `3` upstream/network error · `4` circuit open or rate limited · `5` unexpected upstream schema · `6` missing or rejected credentials
+- **exit codes**: `0` ok · `1` usage error · `2` not found · `3` upstream/network error · `4` circuit open or rate limited · `5` unexpected upstream schema · `6` missing or rejected credentials · `7` computation failed
 
 ## Caching and rate limits
 
@@ -114,3 +122,4 @@ Space-Track additionally limits accounts to <30 requests/minute and 300/hour; sp
 - Orbital data: [CelesTrak](https://celestrak.org) (Dr. T.S. Kelso)
 - Launch data: [Launch Library 2](https://thespacedevs.com/llapi) by The Space Devs
 - Catalog, conjunction and re-entry data: [Space-Track.org](https://www.space-track.org) (18th Space Defense Squadron, USSPACECOM)
+- SGP4 propagation: [satellite.js](https://github.com/shashwatak/satellite-js)

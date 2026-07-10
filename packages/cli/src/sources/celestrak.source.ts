@@ -98,6 +98,17 @@ export function searchByName(
 	return fetchGp({ NAME: query }, options);
 }
 
+/**
+ * Every GP record of one CelesTrak group (e.g. "visual", "stations",
+ * "starlink", "active"). Groups are curated CelesTrak dataset names.
+ */
+export function fetchGroup(
+	group: string,
+	options: CelestrakOptions,
+): Promise<Result<SourceResult<SatelliteRecord[]>, SpaceDataError>> {
+	return fetchGp({ GROUP: group }, options);
+}
+
 export function fetchCatalogRecord(
 	noradId: number,
 	options: CelestrakOptions,
@@ -136,11 +147,14 @@ async function fetchGp(
 		breakerCooldownSeconds: BREAKER_COOLDOWN_SECONDS,
 		fresh: options.fresh,
 		notFoundMessage: "no object in the CelesTrak GP catalog matches the query",
-		parseBody: parseGpBody,
+		parseBody: (body) => parseGpBody(body, params.GROUP),
 	});
 }
 
-function parseGpBody(body: string): Result<SatelliteRecord[], SpaceDataError> {
+function parseGpBody(
+	body: string,
+	group: string | undefined,
+): Result<SatelliteRecord[], SpaceDataError> {
 	// CelesTrak answers HTTP 200 with a plain-text sentinel when the query
 	// matches no object, instead of an empty JSON array.
 	if (body.startsWith("No GP data found")) {
@@ -149,6 +163,13 @@ function parseGpBody(body: string): Result<SatelliteRecord[], SpaceDataError> {
 				"no object in the CelesTrak GP catalog matches the query",
 			),
 		);
+	}
+	// An unknown GROUP gets a different sentinel: "Invalid query: ...
+	// (GROUP=x not found)". Only mapped for group queries — for CATNR/NAME an
+	// "Invalid query" body would signal a broken request and must surface as
+	// an upstream schema error below, not read as a benign no-match.
+	if (group !== undefined && body.startsWith("Invalid query")) {
+		return err(new NotFoundError(`no CelesTrak group named "${group}"`));
 	}
 
 	let json: unknown;

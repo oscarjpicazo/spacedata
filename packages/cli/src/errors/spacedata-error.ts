@@ -103,6 +103,22 @@ export class AuthenticationError extends SpaceDataError {
 	}
 }
 
+export class PropagationError extends SpaceDataError {
+	readonly code = "PROPAGATION_FAILED";
+	readonly exitCode = 7;
+
+	constructor(
+		readonly noradId: number,
+		detail: string,
+	) {
+		super(`SGP4 propagation failed for object ${noradId}: ${detail}`);
+	}
+
+	override toJSON(): Record<string, unknown> {
+		return { ...super.toJSON(), noradId: this.noradId };
+	}
+}
+
 export class UpstreamSchemaError extends SpaceDataError {
 	readonly code = "UPSTREAM_SCHEMA";
 	readonly exitCode = 5;

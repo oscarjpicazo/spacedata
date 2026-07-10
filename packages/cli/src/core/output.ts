@@ -7,7 +7,7 @@ import type { SourceResult } from "./source-fetch";
  * - stderr: single JSON document `{ok: false, error: {code, message, ...}}`
  * - exit codes: 0 ok · 1 usage · 2 not found · 3 upstream/network ·
  *   4 circuit open or rate limited · 5 unexpected upstream schema ·
- *   6 missing or rejected credentials
+ *   6 missing or rejected credentials · 7 computation failed
  */
 export function emit<T>(result: SourceResult<T>, pretty: boolean): void {
 	const payload = { ok: true, ...result };

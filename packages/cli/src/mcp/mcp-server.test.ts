@@ -85,6 +85,93 @@ describe("mcp server", () => {
 		expect(payload.data[0].derived.perigeeAltitudeKm).toBeGreaterThan(395);
 	});
 
+	test("get_satellite_position propagates the orbit to the requested instant", async () => {
+		globalThis.fetch = mock(
+			async () => new Response(JSON.stringify([issOmm]), { status: 200 }),
+		) as unknown as typeof fetch;
+		const client = await connectedClient();
+
+		const result = await client.callTool({
+			name: "get_satellite_position",
+			arguments: { noradId: 25544, at: "2026-07-02T12:00:00Z" },
+		});
+
+		const payload = JSON.parse(textOf(result));
+		expect(payload.ok).toBe(true);
+		expect(payload.source).toBe("celestrak+sgp4");
+		expect(payload.data.noradId).toBe(25544);
+		expect(payload.data.at).toBe("2026-07-02T12:00:00.000Z");
+		expect(payload.data.altitudeKm).toBeGreaterThan(350);
+		expect(payload.data.altitudeKm).toBeLessThan(500);
+		expect(payload.data.tleAgeHours).toBe(0);
+		expect(payload.data.warnings).toHaveLength(0);
+	});
+
+	test("get_satellite_passes computes passes over the given observer", async () => {
+		// The tool always searches from "now", so the fixture epoch must track
+		// the wall clock — a pinned epoch would go stale and start erroring.
+		const liveOmm = { ...issOmm, EPOCH: new Date().toISOString() };
+		globalThis.fetch = mock(
+			async () => new Response(JSON.stringify([liveOmm]), { status: 200 }),
+		) as unknown as typeof fetch;
+		const client = await connectedClient();
+
+		const result = await client.callTool({
+			name: "get_satellite_passes",
+			arguments: { noradId: 25544, latitude: 40.4168, longitude: -3.7038 },
+		});
+
+		const payload = JSON.parse(textOf(result));
+		expect(payload.ok).toBe(true);
+		expect(payload.source).toBe("celestrak+sgp4");
+		expect(payload.data.observer).toEqual({
+			latitudeDeg: 40.4168,
+			longitudeDeg: -3.7038,
+			altitudeM: 0,
+		});
+		expect(payload.data.minElevationDeg).toBe(10);
+		expect(Array.isArray(payload.data.passes)).toBe(true);
+	});
+
+	test("get_satellites_overhead scans a CelesTrak group for the observer", async () => {
+		// Like the passes test: "now"-anchored tool, wall-clock-fresh epoch.
+		const liveOmm = { ...issOmm, EPOCH: new Date().toISOString() };
+		const fetchMock = mock(
+			async (_input: string | URL | Request) =>
+				new Response(JSON.stringify([liveOmm]), { status: 200 }),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		const client = await connectedClient();
+
+		const result = await client.callTool({
+			name: "get_satellites_overhead",
+			arguments: { latitude: 40.4168, longitude: -3.7038 },
+		});
+
+		const payload = JSON.parse(textOf(result));
+		expect(payload.ok).toBe(true);
+		expect(payload.data.group).toBe("visual");
+		expect(String(fetchMock.mock.calls[0]?.[0])).toContain("GROUP=visual");
+		expect(typeof payload.data.totalAboveMinElevation).toBe("number");
+		expect(Array.isArray(payload.data.satellites)).toBe(true);
+	});
+
+	test("get_satellite_passes rejects an out-of-range latitude without fetching", async () => {
+		const fetchMock = mock(async () => new Response("[]", { status: 200 }));
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		const client = await connectedClient();
+
+		const result = await client.callTool({
+			name: "get_satellite_passes",
+			arguments: { noradId: 25544, latitude: 120, longitude: 0 },
+		});
+
+		expect(result.isError).toBe(true);
+		const payload = JSON.parse(textOf(result));
+		expect(payload.error.code).toBe("INVALID_ARGUMENTS");
+		expect(fetchMock).toHaveBeenCalledTimes(0);
+	});
+
 	test("upstream errors map to isError with the CLI error envelope", async () => {
 		globalThis.fetch = mock(
 			async () => new Response("boom", { status: 500 }),

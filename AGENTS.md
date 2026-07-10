@@ -11,15 +11,17 @@ Bun monorepo (`packages/*`). One package for now:
 
 | Package | What it does | Stack |
 |---------|-------------|-------|
-| `cli` | The `spacedata` command | TypeScript, commander, Zod, neverthrow |
+| `cli` | The `spacedata` command | TypeScript, commander, Zod, neverthrow, satellite.js (SGP4) |
 
-The MCP server lives inside the cli package (`spacedata serve`, `src/mcp/mcp-server.ts`): a lean 7-tool surface over stdio that reuses the source layer verbatim. Tool results carry the same `{ok, source, cached, fetchedAt, data}` / `{ok: false, error}` envelopes as the CLI; new sources should be exposed in both surfaces. In serve mode stdout belongs to the MCP transport — never write anything else to it.
+The MCP server lives inside the cli package (`spacedata serve`, `src/mcp/mcp-server.ts`): a lean 10-tool surface over stdio that reuses the source layer verbatim. Tool results carry the same `{ok, source, cached, fetchedAt, data}` / `{ok: false, error}` envelopes as the CLI; new sources should be exposed in both surfaces. In serve mode stdout belongs to the MCP transport — never write anything else to it.
+
+Locally computed results (SGP4 position/passes/overhead) are layered: pure math in `src/domain/propagation.ts` (no I/O, like `derive.ts`), fetch+compute orchestration in `src/compute/`, reusing the CelesTrak source. Their envelope uses `source: "celestrak+sgp4"`; `cached`/`fetchedAt` describe the underlying element fetch.
 
 Linting: Biome. Results: `neverthrow`. Prefer `undefined` over `null` to represent absence/empty state.
 
 ## Product invariants (CRITICAL)
 
-- **Output contract is stable — agents depend on it.** stdout: one JSON document `{ok: true, source, cached, fetchedAt, data}`. stderr: `{ok: false, error: {code, message}}`. Exit codes: 0 ok, 1 usage, 2 not found, 3 upstream/network, 4 circuit open or rate limited, 5 upstream schema, 6 missing/rejected credentials. Never print anything else to stdout, never add interactive prompts.
+- **Output contract is stable — agents depend on it.** stdout: one JSON document `{ok: true, source, cached, fetchedAt, data}`. stderr: `{ok: false, error: {code, message}}`. Exit codes: 0 ok, 1 usage, 2 not found, 3 upstream/network, 4 circuit open or rate limited, 5 upstream schema, 6 missing/rejected credentials, 7 computation failed (e.g. SGP4 on decayed/invalid elements). Never print anything else to stdout, never add interactive prompts.
 - **Every upstream source goes through `sourceFetch`** (`packages/cli/src/core/source-fetch.ts`): cache → circuit breaker → rate limit → HTTP → Zod validation → cache write. New sources must declare a TTL and breaker cooldown derived from the provider's documented usage policy, with a comment citing that policy.
 - **Never embed credentials.** Sources that need auth (Space-Track today via `SPACEDATA_SPACETRACK_IDENTITY`/`_PASSWORD`, DISCOSweb next) take the user's own credentials via env vars. Credentials must never reach the cache: authenticated sources set an explicit `cacheKey` that identifies the query only (see `spacetrack.source.ts`).
 - **Space-Track serializes all JSON values as strings.** Its schemas convert string→number explicitly at the boundary (`spacetrack.schema.ts` helpers); never `z.coerce` there — null would silently become 0.
