@@ -13,9 +13,11 @@ Bun monorepo (`packages/*`). One package for now:
 |---------|-------------|-------|
 | `cli` | The `spacedata` command | TypeScript, commander, Zod, neverthrow, satellite.js (SGP4) |
 
-The MCP server lives inside the cli package (`spacedata serve`, `src/mcp/mcp-server.ts`): a lean 10-tool surface over stdio that reuses the source layer verbatim. Tool results carry the same `{ok, source, cached, fetchedAt, data}` / `{ok: false, error}` envelopes as the CLI; new sources should be exposed in both surfaces. In serve mode stdout belongs to the MCP transport — never write anything else to it.
+The MCP server lives inside the cli package (`spacedata serve`, `src/mcp/mcp-server.ts`): a lean 12-tool surface over stdio that reuses the source layer verbatim. Tool results carry the same `{ok, source, cached, fetchedAt, data}` / `{ok: false, error}` envelopes as the CLI; new sources should be exposed in both surfaces. In serve mode stdout belongs to the MCP transport — never write anything else to it.
 
 Locally computed results (SGP4 position/passes/overhead) are layered: pure math in `src/domain/propagation.ts` (no I/O, like `derive.ts`), fetch+compute orchestration in `src/compute/`, reusing the CelesTrak source. Their envelope uses `source: "celestrak+sgp4"`; `cached`/`fetchedAt` describe the underlying element fetch.
+
+Aggregated reports (`spaceweather`, `aurora`, NOAA SWPC) fetch several products in parallel; only the core product's failure fails the command — every other section degrades to `undefined` plus an entry in `data.warnings`. Their envelope reports `cached: true` only when every contributing fetch was cached, and the most recent `fetchedAt`.
 
 Linting: Biome. Results: `neverthrow`. Prefer `undefined` over `null` to represent absence/empty state.
 

@@ -8,7 +8,7 @@ Instead of teaching an agent (or yourself) four different APIs, query languages 
 
 ## Status
 
-**v0.4** — CelesTrak (orbital elements, catalog search) and Launch Library 2 (upcoming launches) with no account needed, plus Space-Track (SATCAT, element history, conjunctions, re-entry predictions) using your own free account. New in 0.4: local SGP4 propagation — live positions, pass predictions with optical visibility, and what's-overhead queries, no extra API or account. Planned next: ESA DISCOSweb (physical metadata) and a cross-source `sat info`.
+**v0.5** — CelesTrak (orbital elements, catalog search), Launch Library 2 (upcoming launches) and NOAA SWPC (space weather, aurora) with no account needed, plus Space-Track (SATCAT, element history, conjunctions, re-entry predictions) using your own free account. New in 0.5: space weather — planetary Kp with forecast, NOAA R/S/G scales, solar wind, flare class, and OVATION aurora probability for any location. Planned next: ESA DISCOSweb (physical metadata) and a cross-source `sat info`.
 
 ## Usage
 
@@ -17,6 +17,8 @@ spacedata position 25544                             # where is the ISS right no
 spacedata passes 25544 --lat 40.42 --lon -3.70       # when does the ISS pass over Madrid (next 3 days)
 spacedata passes 25544 --lat 40.42 --lon -3.70 --visible-only   # only passes you can actually see
 spacedata overhead --lat 40.42 --lon -3.70           # bright satellites above that spot right now
+spacedata spaceweather                               # Kp + forecast, NOAA scales, solar wind, flare class
+spacedata aurora --lat 64.13 --lon -21.90            # aurora probability over Reykjavik right now
 spacedata tle 25544                                  # latest orbital elements for the ISS
 spacedata sat search STARLINK-32000                  # search the catalog by name
 spacedata launches upcoming --limit 5                # next 5 orbital launches
@@ -39,7 +41,7 @@ spacedata conjunctions --source spacetrack           # official public CDMs inst
 
 ### MCP server
 
-`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Ten tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_satellite_position`, `get_satellite_passes`, `get_satellites_overhead`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
+`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Twelve tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_satellite_position`, `get_satellite_passes`, `get_satellites_overhead`, `get_space_weather`, `get_aurora_forecast`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
 
 Claude Code:
 
@@ -109,6 +111,7 @@ Responses are cached in `~/.cache/spacedata` (override with `--cache-dir` or `XD
 |---|---|---|
 | CelesTrak | 2 h | GP data updates every 2 h; policy asks for one download per cycle |
 | Launch Library 2 | 1 h | Free tier allows 15 calls/hour per IP |
+| NOAA SWPC | 5 min (real-time) / 30 min (forecasts) | Products refresh every 1-5 min; one cache per refresh cycle |
 
 On any non-200 response the source's circuit breaker opens and `spacedata` refuses to query it again until the cooldown expires (CelesTrak's M2M policy requires stopping immediately on errors; ignoring it gets your IP firewalled).
 
@@ -138,4 +141,5 @@ cd packages/cli && bun src/cli.ts tle 25544
 
 - Orbital data: [CelesTrak](https://celestrak.org) (Dr. T.S. Kelso)
 - Launch data: [Launch Library 2](https://thespacedevs.com/llapi) by The Space Devs
+- Space weather and aurora data: [NOAA SWPC](https://www.swpc.noaa.gov)
 - SGP4 propagation: [satellite.js](https://github.com/shashwatak/satellite-js)

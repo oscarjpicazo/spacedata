@@ -17,6 +17,8 @@ spacedata position 25544                             # where is the ISS right no
 spacedata passes 25544 --lat 40.42 --lon -3.70       # when does the ISS pass over Madrid (next 3 days)
 spacedata passes 25544 --lat 40.42 --lon -3.70 --visible-only   # only passes you can actually see
 spacedata overhead --lat 40.42 --lon -3.70           # bright satellites above that spot right now
+spacedata spaceweather                               # Kp + forecast, NOAA scales, solar wind, flare class
+spacedata aurora --lat 64.13 --lon -21.90            # aurora probability over Reykjavik right now
 spacedata tle 25544                                  # latest orbital elements for the ISS
 spacedata sat search "ZARYA"                         # search the catalog by name
 spacedata launches upcoming --limit 5                # next 5 orbital launches
@@ -45,7 +47,7 @@ spacedata conjunctions --source spacetrack           # official public CDMs inst
 
 ## MCP server
 
-`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Ten tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_satellite_position`, `get_satellite_passes`, `get_satellites_overhead`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
+`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Twelve tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_satellite_position`, `get_satellite_passes`, `get_satellites_overhead`, `get_space_weather`, `get_aurora_forecast`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
 
 Claude Code:
 
@@ -122,4 +124,5 @@ Space-Track additionally limits accounts to <30 requests/minute and 300/hour; sp
 - Orbital data: [CelesTrak](https://celestrak.org) (Dr. T.S. Kelso)
 - Launch data: [Launch Library 2](https://thespacedevs.com/llapi) by The Space Devs
 - Catalog, conjunction and re-entry data: [Space-Track.org](https://www.space-track.org) (18th Space Defense Squadron, USSPACECOM)
+- Space weather and aurora data: [NOAA SWPC](https://www.swpc.noaa.gov)
 - SGP4 propagation: [satellite.js](https://github.com/shashwatak/satellite-js)
