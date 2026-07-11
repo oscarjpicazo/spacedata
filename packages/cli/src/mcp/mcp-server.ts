@@ -11,6 +11,10 @@ import {
 	computePasses,
 	computePosition,
 } from "../compute/propagation.compute";
+import {
+	computeAurora,
+	computeSpaceWeather,
+} from "../compute/space-weather.compute";
 import { defaultCacheDir, FileCache } from "../core/file-cache";
 import type { SourceResult } from "../core/source-fetch";
 import { type Observer, parseInstant } from "../domain/propagation";
@@ -288,6 +292,34 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
 				},
 				{ cache, fresh: false },
 			);
+		},
+	},
+	{
+		name: "get_space_weather",
+		description:
+			"Current space weather snapshot (NOAA SWPC): estimated planetary Kp with its NOAA G scale, " +
+			"max Kp forecast for the next 24h, current R/S/G scales (radio blackouts, solar radiation, " +
+			"geomagnetic storm) with today's probabilities and 2-day outlook, solar wind speed, " +
+			"interplanetary magnetic field (Bt/Bz) and latest GOES X-ray flux with flare class. " +
+			"Public data, no account needed.",
+		inputSchema: { type: "object", properties: {} },
+		handler: (_args, cache) => computeSpaceWeather({ cache, fresh: false }),
+	},
+	{
+		name: "get_aurora_forecast",
+		description:
+			"Aurora visibility outlook for a ground location: OVATION model probability (0-100) at the " +
+			"observer's 1° grid cell, current Kp, sun elevation and whether the sky is dark enough to " +
+			"see an aurora (sun below civil twilight). Answers 'can I see the northern lights tonight?' " +
+			"— ask the user for their location if unknown. Source: NOAA SWPC; no account needed.",
+		inputSchema: {
+			type: "object",
+			properties: { ...observerProperties },
+			required: ["latitude", "longitude"],
+		},
+		handler: (args, cache) => {
+			const parsed = z.object(observerArgsSchema).parse(args);
+			return computeAurora(toObserver(parsed), { cache, fresh: false });
 		},
 	},
 	{

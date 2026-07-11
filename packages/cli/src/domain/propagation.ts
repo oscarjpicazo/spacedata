@@ -101,7 +101,7 @@ export interface PassSearch {
 /** Matches satellite.js's own KM_PER_AU (shadow.js; not exported by the lib). */
 const AU_KM = 149597870.69098932;
 /** Observer's sky is considered dark below civil twilight. */
-const TWILIGHT_SUN_ELEVATION_DEG = -6;
+export const TWILIGHT_SUN_ELEVATION_DEG = -6;
 /**
  * Coarse sampling step for the pass search; crossings are then bisected.
  * A pass whose above-mask segment is shorter than one step can be missed —

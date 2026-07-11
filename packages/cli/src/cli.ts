@@ -7,6 +7,10 @@ import {
 	computePasses,
 	computePosition,
 } from "./compute/propagation.compute";
+import {
+	computeAurora,
+	computeSpaceWeather,
+} from "./compute/space-weather.compute";
 import { defaultCacheDir, FileCache } from "./core/file-cache";
 import { emit, fail } from "./core/output";
 import type { SourceResult } from "./core/source-fetch";
@@ -61,6 +65,8 @@ Examples:
   spacedata position 25544                    where is the ISS right now (SGP4-propagated)
   spacedata passes 25544 --lat 40.42 --lon -3.70   when does the ISS pass over Madrid
   spacedata overhead --lat 40.42 --lon -3.70  bright satellites above that spot right now
+  spacedata spaceweather                      Kp, NOAA scales, solar wind, flares (NOAA SWPC)
+  spacedata aurora --lat 64.13 --lon -21.90   aurora probability over Reykjavik right now
   spacedata sat search "ZARYA"                find objects by name
   spacedata sat catalog 25544                 catalog record: type, status, owner, launch, RCS
   spacedata conjunctions --limit 10           closest upcoming approaches (public SOCRATES data)
@@ -259,6 +265,40 @@ addObserverOptions(overheadCommand)
 			finish(result, globals.pretty);
 		},
 	);
+
+program
+	.command("spaceweather")
+	.description(
+		"Current space weather snapshot (NOAA SWPC): estimated planetary Kp with its NOAA G scale, " +
+			"max Kp forecast for the next 24h, current R/S/G scales (radio blackouts, solar radiation, " +
+			"geomagnetic storm) with today's probabilities and 2-day outlook, solar wind speed, " +
+			"interplanetary magnetic field (Bt/Bz) and latest GOES X-ray flux with flare class. " +
+			"Public data, no account needed. Example: spacedata spaceweather",
+	)
+	.action(async (_options: unknown, command: Command) => {
+		const globals = command.optsWithGlobals<GlobalOptions>();
+		const result = await computeSpaceWeather(sourceOptions(globals));
+		finish(result, globals.pretty);
+	});
+
+const auroraCommand = program
+	.command("aurora")
+	.description(
+		"Aurora visibility outlook for a ground location: OVATION model probability at the " +
+			"observer's 1° grid cell, current Kp, sun elevation and whether the sky is dark enough " +
+			"(sun below civil twilight). Source: NOAA SWPC, no account needed. " +
+			"Example: spacedata aurora --lat 64.13 --lon -21.90",
+	);
+addObserverOptions(auroraCommand).action(
+	async (options: ObserverOptions, command: Command) => {
+		const globals = command.optsWithGlobals<GlobalOptions>();
+		const result = await computeAurora(
+			toObserver(options),
+			sourceOptions(globals),
+		);
+		finish(result, globals.pretty);
+	},
+);
 
 program
 	.command("conjunctions")

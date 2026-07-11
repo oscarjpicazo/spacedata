@@ -172,6 +172,73 @@ describe("mcp server", () => {
 		expect(fetchMock).toHaveBeenCalledTimes(0);
 	});
 
+	test("get_space_weather aggregates the SWPC products", async () => {
+		globalThis.fetch = mock(async (input: string | URL | Request) => {
+			const url = String(input);
+			if (url.includes("planetary_k_index_1m")) {
+				return new Response(
+					JSON.stringify([
+						{
+							time_tag: "2026-07-11T11:59:00",
+							kp_index: 6,
+							estimated_kp: 5.67,
+						},
+					]),
+					{ status: 200 },
+				);
+			}
+			// Every other product is down: the report must degrade, not fail.
+			return new Response("boom", { status: 500 });
+		}) as unknown as typeof fetch;
+		const client = await connectedClient();
+
+		const result = await client.callTool({
+			name: "get_space_weather",
+			arguments: {},
+		});
+
+		const payload = JSON.parse(textOf(result));
+		expect(payload.ok).toBe(true);
+		expect(payload.source).toBe("noaa-swpc");
+		expect(payload.data.kp.estimated).toBe(5.67);
+		expect(payload.data.kp.noaaScale).toBe("G1");
+		expect(payload.data.warnings.length).toBeGreaterThan(0);
+	});
+
+	test("get_aurora_forecast reports the observer's OVATION cell", async () => {
+		globalThis.fetch = mock(async (input: string | URL | Request) => {
+			const url = String(input);
+			if (url.includes("ovation_aurora_latest")) {
+				return new Response(
+					JSON.stringify({
+						"Observation Time": "2026-07-11T11:50:00Z",
+						"Forecast Time": "2026-07-11T12:40:00Z",
+						coordinates: [[338, 64, 78]],
+					}),
+					{ status: 200 },
+				);
+			}
+			return new Response(
+				JSON.stringify([
+					{ time_tag: "2026-07-11T11:59:00", kp_index: 6, estimated_kp: 5.67 },
+				]),
+				{ status: 200 },
+			);
+		}) as unknown as typeof fetch;
+		const client = await connectedClient();
+
+		const result = await client.callTool({
+			name: "get_aurora_forecast",
+			arguments: { latitude: 64.13, longitude: -21.9 },
+		});
+
+		const payload = JSON.parse(textOf(result));
+		expect(payload.ok).toBe(true);
+		expect(payload.data.probabilityPct).toBe(78);
+		expect(payload.data.kpNow).toBe(5.67);
+		expect(typeof payload.data.darkSky).toBe("boolean");
+	});
+
 	test("upstream errors map to isError with the CLI error envelope", async () => {
 		globalThis.fetch = mock(
 			async () => new Response("boom", { status: 500 }),
