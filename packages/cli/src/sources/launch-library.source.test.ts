@@ -8,7 +8,10 @@ import {
 	UpstreamHttpError,
 	UpstreamSchemaError,
 } from "../errors/spacedata-error";
-import { fetchUpcomingLaunches } from "./launch-library.source";
+import {
+	fetchPreviousLaunches,
+	fetchUpcomingLaunches,
+} from "./launch-library.source";
 
 const launchFixture = {
 	id: "abc-123",
@@ -187,5 +190,28 @@ describe("launch-library source", () => {
 		});
 
 		expect(result._unsafeUnwrapErr()).toBeInstanceOf(UpstreamSchemaError);
+	});
+
+	test("fetchPreviousLaunches queries the previous endpoint with the window start", async () => {
+		mockFetch((url) => {
+			expect(url).toContain("/launches/previous/");
+			expect(url).toContain("net__gte=2026-07-12T00%3A00%3A00.000Z");
+			expect(url).toContain("limit=60");
+			return new Response(
+				JSON.stringify({ count: 1, results: [launchFixture] }),
+				{ status: 200 },
+			);
+		});
+
+		const result = await fetchPreviousLaunches({
+			cache: makeCache(),
+			fresh: false,
+			limit: 60,
+			sinceIso: "2026-07-12T00:00:00.000Z",
+		});
+
+		const data = result._unsafeUnwrap().data;
+		expect(data.count).toBe(1);
+		expect(data.launches[0]?.provider).toBe("SpaceX");
 	});
 });

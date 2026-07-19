@@ -1,4 +1,5 @@
 import { err, ok, type Result } from "neverthrow";
+import { wrapAggregate } from "../core/aggregate";
 import type { SourceResult } from "../core/source-fetch";
 import {
 	type Observer,
@@ -108,7 +109,7 @@ export async function computeSpaceWeather(
 	const extras = [forecastValue, scalesValue, windValue, magValue, xrayValue];
 
 	return ok(
-		wrapAggregate(kp.value, extras, {
+		wrapAggregate(SOURCE, kp.value, extras, {
 			at: reference.toISOString(),
 			kp: {
 				estimated: kp.value.data.estimatedKp,
@@ -175,7 +176,7 @@ export async function computeAurora(
 	const sunElevation = round(sunElevationDeg(observer, when));
 
 	return ok(
-		wrapAggregate(grid.value, [kp.isOk() ? kp.value : undefined], {
+		wrapAggregate(SOURCE, grid.value, [kp.isOk() ? kp.value : undefined], {
 			observer,
 			at: when.toISOString(),
 			probabilityPct: probability,
@@ -191,29 +192,6 @@ export async function computeAurora(
 
 function sectionUnavailable(name: string, error: SpaceDataError): string {
 	return `the ${name} section is unavailable: ${error.message}`;
-}
-
-/**
- * Aggregate envelope: `cached` only when every contributing fetch came from
- * cache; `fetchedAt` is the most recent of them. The core fetch is required,
- * so the aggregate is never empty.
- */
-function wrapAggregate<T>(
-	core: SourceResult<unknown>,
-	extras: (SourceResult<unknown> | undefined)[],
-	data: T,
-): SourceResult<T> {
-	const sources = [core, ...extras.filter((entry) => entry !== undefined)];
-	return {
-		source: SOURCE,
-		cached: sources.every((entry) => entry.cached),
-		// ISO-8601 strings compare chronologically.
-		fetchedAt: sources.reduce(
-			(latest, entry) => (entry.fetchedAt > latest ? entry.fetchedAt : latest),
-			core.fetchedAt,
-		),
-		data,
-	};
 }
 
 function maxForecastWithin24h(

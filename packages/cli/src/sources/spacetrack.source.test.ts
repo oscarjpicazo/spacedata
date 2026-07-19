@@ -12,7 +12,10 @@ import {
 import {
 	fetchConjunctions,
 	fetchElsetHistory,
+	fetchElsetWindow,
 	fetchReentries,
+	fetchSatcatChanges,
+	fetchSatcatDebuts,
 } from "./spacetrack.source";
 
 const cdmFixture = {
@@ -55,6 +58,48 @@ const gpHistoryFixture = {
 	MEAN_ANOMALY: "300.3",
 	BSTAR: "0.0001",
 	REV_AT_EPOCH: "57000",
+};
+
+/** Real satcat_debut shape from the API — including the first 6-digit ids. */
+const satcatDebutFixture = {
+	INTLDES: "2026-164A",
+	NORAD_CAT_ID: "100080",
+	OBJECT_TYPE: "UNKNOWN",
+	SATNAME: "OBJECT A",
+	DEBUT: "2026-07-18 18:23:24",
+	COUNTRY: "IND",
+	LAUNCH: "2026-07-18",
+	SITE: "SRI",
+	DECAY: null,
+	PERIOD: null,
+	INCLINATION: null,
+	APOGEE: null,
+	PERIGEE: null,
+	RCSVALUE: "0",
+	RCS_SIZE: null,
+	LAUNCH_YEAR: "2026",
+	LAUNCH_NUM: "164",
+	LAUNCH_PIECE: "A",
+	CURRENT: "Y",
+	OBJECT_NAME: "OBJECT A",
+	OBJECT_ID: "2026-164A",
+	OBJECT_NUMBER: "100080",
+};
+
+const satcatChangeFixture = {
+	NORAD_CAT_ID: "58902",
+	OBJECT_NUMBER: "58902",
+	CURRENT_NAME: "LEMUR 2 OBA-NI-JESU",
+	PREVIOUS_NAME: "LEMUR 2 OBA-NI-JESU",
+	CURRENT_INTLDES: "2024-022D",
+	PREVIOUS_INTLDES: "2024-022D",
+	CURRENT_COUNTRY: "US",
+	PREVIOUS_COUNTRY: "US",
+	CURRENT_LAUNCH: "2024-01-31",
+	PREVIOUS_LAUNCH: "2024-01-31",
+	CURRENT_DECAY: "2026-06-14",
+	PREVIOUS_DECAY: null,
+	CHANGE_MADE: "2026-07-19 17:33:27",
 };
 
 const realFetch = globalThis.fetch;
@@ -294,5 +339,102 @@ describe("spacetrack source", () => {
 		});
 
 		expect(result._unsafeUnwrapErr()).toBeInstanceOf(UpstreamSchemaError);
+	});
+
+	test("fetchElsetWindow queries an epoch window oldest-first and exposes bstar", async () => {
+		mockTwoStep((url) => {
+			expect(url).toContain(
+				"/class/gp_history/NORAD_CAT_ID/25544/EPOCH/>now-30",
+			);
+			expect(url).toContain("orderby/EPOCH asc");
+			return new Response(JSON.stringify([gpHistoryFixture]), {
+				status: 200,
+			});
+		});
+
+		const result = await fetchElsetWindow(25544, 30, {
+			cache: makeCache(),
+			fresh: false,
+			...credentials(),
+		});
+
+		const elsets = result._unsafeUnwrap().data;
+		expect(elsets).toHaveLength(1);
+		expect(elsets[0]?.bstar).toBe(0.0001);
+	});
+
+	test("fetchElsetWindow maps an empty window to NotFoundError", async () => {
+		mockTwoStep(() => new Response("[]", { status: 200 }));
+
+		const result = await fetchElsetWindow(999999, 30, {
+			cache: makeCache(),
+			fresh: false,
+			...credentials(),
+		});
+
+		expect(result._unsafeUnwrapErr()).toBeInstanceOf(NotFoundError);
+	});
+
+	test("fetchSatcatDebuts parses newly cataloged objects (6-digit ids included)", async () => {
+		mockTwoStep((url) => {
+			expect(url).toContain("/class/satcat_debut/DEBUT/>now-7");
+			return new Response(JSON.stringify([satcatDebutFixture]), {
+				status: 200,
+			});
+		});
+
+		const result = await fetchSatcatDebuts(7, 500, {
+			cache: makeCache(),
+			fresh: false,
+			...credentials(),
+		});
+
+		const debuts = result._unsafeUnwrap().data;
+		expect(debuts).toEqual([
+			{
+				noradId: 100080,
+				internationalDesignator: "2026-164A",
+				name: "OBJECT A",
+				objectType: "UNKNOWN",
+				debut: "2026-07-18 18:23:24",
+				country: "IND",
+				launchDate: "2026-07-18",
+				launchSite: "SRI",
+				rcsSize: undefined,
+			},
+		]);
+	});
+
+	test("fetchSatcatDebuts treats a quiet window as a valid empty answer", async () => {
+		mockTwoStep(() => new Response("[]", { status: 200 }));
+
+		const result = await fetchSatcatDebuts(7, 500, {
+			cache: makeCache(),
+			fresh: false,
+			...credentials(),
+		});
+
+		expect(result._unsafeUnwrap().data).toEqual([]);
+	});
+
+	test("fetchSatcatChanges parses decay-date changes", async () => {
+		mockTwoStep((url) => {
+			expect(url).toContain("/class/satcat_change/CHANGE_MADE/>now-7");
+			return new Response(JSON.stringify([satcatChangeFixture]), {
+				status: 200,
+			});
+		});
+
+		const result = await fetchSatcatChanges(7, 500, {
+			cache: makeCache(),
+			fresh: false,
+			...credentials(),
+		});
+
+		const changes = result._unsafeUnwrap().data;
+		expect(changes[0]?.noradId).toBe(58902);
+		expect(changes[0]?.decayDate).toBe("2026-06-14");
+		expect(changes[0]?.previousDecayDate).toBeUndefined();
+		expect(changes[0]?.changedAt).toBe("2026-07-19 17:33:27");
 	});
 });
