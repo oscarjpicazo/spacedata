@@ -322,6 +322,39 @@ export function findPasses(
 	});
 }
 
+/**
+ * Distance (km) between where element set `from` says the object is at the
+ * epoch of element set `to`, and where `to` itself places it — the SGP4
+ * propagation residual used by maneuver detection. Natural dynamics that SGP4
+ * models (drag via BSTAR, J2 secular rates) cancel out of this comparison, so
+ * a large residual over a short gap means the published orbit changed in a
+ * way the previous elements could not predict. Returns undefined when either
+ * set fails to initialize or propagate (e.g. decayed elements).
+ */
+export function propagationResidualKm(
+	from: PropagatableElements,
+	to: PropagatableElements,
+): number | undefined {
+	const at = parseEpoch(to.epoch);
+	if (at === undefined) {
+		return undefined;
+	}
+	const fromSatrec = initSatrec(from);
+	const toSatrec = initSatrec(to);
+	if (fromSatrec.isErr() || toSatrec.isErr()) {
+		return undefined;
+	}
+	const fromEci = propagate(fromSatrec.value, at);
+	const toEci = propagate(toSatrec.value, at);
+	if (fromEci === null || toEci === null) {
+		return undefined;
+	}
+	const dx = fromEci.position.x - toEci.position.x;
+	const dy = fromEci.position.y - toEci.position.y;
+	const dz = fromEci.position.z - toEci.position.z;
+	return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
 /** Sun elevation over the observer's horizon, in degrees. */
 export function sunElevationDeg(observer: Observer, at: Date): number {
 	const sunEciKm = sunEciPositionKm(at);

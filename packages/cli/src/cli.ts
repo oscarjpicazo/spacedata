@@ -2,11 +2,13 @@
 import { Command, InvalidArgumentError } from "commander";
 import type { Result } from "neverthrow";
 import packageJson from "../package.json";
+import { computeOrbitalEvents } from "./compute/orbital-events.compute";
 import {
 	computeOverhead,
 	computePasses,
 	computePosition,
 } from "./compute/propagation.compute";
+import { computeSatelliteEvents } from "./compute/satellite-events.compute";
 import {
 	computeAurora,
 	computeSpaceWeather,
@@ -69,13 +71,15 @@ Examples:
   spacedata aurora --lat 64.13 --lon -21.90   aurora probability over Reykjavik right now
   spacedata sat search "ZARYA"                find objects by name
   spacedata sat catalog 25544                 catalog record: type, status, owner, launch, RCS
+  spacedata sat events 25544                  detected maneuvers/anomalies of one object
+  spacedata events --days 7                   what happened in orbit: new objects, decays, storms
   spacedata conjunctions --limit 10           closest upcoming approaches (public SOCRATES data)
   spacedata launches upcoming --search ariane upcoming launches, filtered
   spacedata --pretty tle 25544                human-readable JSON
 
-Only 'sat history', 'reentries' and 'conjunctions --source spacetrack' need a free
-Space-Track account (SPACEDATA_SPACETRACK_IDENTITY / SPACEDATA_SPACETRACK_PASSWORD);
-everything else works with no account or API key.
+Only 'sat history', 'sat events', 'events', 'reentries' and 'conjunctions --source
+spacetrack' need a free Space-Track account (SPACEDATA_SPACETRACK_IDENTITY /
+SPACEDATA_SPACETRACK_PASSWORD); everything else works with no account or API key.
 
 Exit codes: 0 ok · 1 usage · 2 not found · 3 upstream/network · 4 cooldown/rate limit ·
 5 unexpected upstream schema · 6 missing/rejected credentials · 7 computation failed`,
@@ -153,6 +157,59 @@ sat
 			finish(result, globals.pretty);
 		},
 	);
+
+sat
+	.command("events")
+	.description(
+		"Orbital events of one object, inferred locally from its element history: impulsive " +
+			"maneuvers (orbit raise/lower, plane change) with estimated Δv, storm-driven drag " +
+			"responses (cross-checked against GFZ planetary Kp) and decay-rate anomalies. Every " +
+			"event carries its evidence (element deltas, z-score, SGP4 residual, Kp) and a " +
+			"confidence level — these are inferences from public mean elements, not telemetry. " +
+			"Sources: Space-Track (account required) + GFZ. Example: spacedata sat events 25544",
+	)
+	.argument("<norad-id>", "NORAD catalog id", parseNoradId)
+	.option(
+		"--days <n>",
+		"analysis window in days (1-90)",
+		parseEventWindowDays,
+		30,
+	)
+	.action(
+		async (noradId: number, options: { days: number }, command: Command) => {
+			const globals = command.optsWithGlobals<GlobalOptions>();
+			const result = await computeSatelliteEvents(
+				noradId,
+				options.days,
+				sourceOptions(globals),
+			);
+			finish(result, globals.pretty);
+		},
+	);
+
+program
+	.command("events")
+	.description(
+		"What happened in orbit in the last days: newly cataloged objects grouped by launch " +
+			"(with fragmentation signals when an old launch suddenly produces many pieces), decay " +
+			"dates set and renames, re-entry predictions touching the window, past launches and " +
+			"geomagnetic storms. Sources: Space-Track (account required), Launch Library 2 and " +
+			"GFZ. Example: spacedata events --days 7",
+	)
+	.option(
+		"--days <n>",
+		"report window in days (1-30)",
+		parseDigestWindowDays,
+		7,
+	)
+	.action(async (options: { days: number }, command: Command) => {
+		const globals = command.optsWithGlobals<GlobalOptions>();
+		const result = await computeOrbitalEvents(
+			options.days,
+			sourceOptions(globals),
+		);
+		finish(result, globals.pretty);
+	});
 
 program
 	.command("position")
@@ -566,6 +623,14 @@ function parseMinElevation(raw: string): number {
 
 function parseDays(raw: string): number {
 	return parseBoundedInt(raw, 1, 10, "must be an integer between 1 and 10");
+}
+
+function parseEventWindowDays(raw: string): number {
+	return parseBoundedInt(raw, 1, 90, "must be an integer between 1 and 90");
+}
+
+function parseDigestWindowDays(raw: string): number {
+	return parseBoundedInt(raw, 1, 30, "must be an integer between 1 and 30");
 }
 
 function parseOverheadLimit(raw: string): number {

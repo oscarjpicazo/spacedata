@@ -93,3 +93,34 @@ export const gpHistorySchema = z.object({
 
 export const gpHistoryArraySchema = z.array(gpHistorySchema);
 export type GpHistory = z.infer<typeof gpHistorySchema>;
+
+/** satcat_debut: objects newly added to the public catalog. */
+export const satcatDebutSchema = z.object({
+	NORAD_CAT_ID: numericString,
+	INTLDES: z.string(),
+	SATNAME: nullableString,
+	OBJECT_TYPE: nullableString,
+	DEBUT: z.string(),
+	COUNTRY: nullableString,
+	LAUNCH: nullableString,
+	SITE: nullableString,
+	RCS_SIZE: nullableString,
+});
+
+export const satcatDebutArraySchema = z.array(satcatDebutSchema);
+export type SatcatDebut = z.infer<typeof satcatDebutSchema>;
+
+/** satcat_change: administrative changes to existing catalog records. */
+export const satcatChangeSchema = z.object({
+	NORAD_CAT_ID: numericString,
+	CURRENT_NAME: nullableString,
+	PREVIOUS_NAME: nullableString,
+	CURRENT_INTLDES: nullableString,
+	PREVIOUS_INTLDES: nullableString,
+	CURRENT_DECAY: nullableString,
+	PREVIOUS_DECAY: nullableString,
+	CHANGE_MADE: z.string(),
+});
+
+export const satcatChangeArraySchema = z.array(satcatChangeSchema);
+export type SatcatChange = z.infer<typeof satcatChangeSchema>;

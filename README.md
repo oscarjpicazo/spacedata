@@ -8,7 +8,7 @@ Instead of teaching an agent (or yourself) four different APIs, query languages 
 
 ## Status
 
-**v0.5** — CelesTrak (orbital elements, catalog search), Launch Library 2 (upcoming launches) and NOAA SWPC (space weather, aurora) with no account needed, plus Space-Track (SATCAT, element history, conjunctions, re-entry predictions) using your own free account. New in 0.5: space weather — planetary Kp with forecast, NOAA R/S/G scales, solar wind, flare class, and OVATION aurora probability for any location. Planned next: ESA DISCOSweb (physical metadata) and a cross-source `sat info`.
+**v0.6** — CelesTrak (orbital elements, catalog search), Launch Library 2 (launches) and NOAA SWPC (space weather, aurora) with no account needed, plus Space-Track (SATCAT, element history, conjunctions, re-entry predictions) using your own free account. New in 0.6: **orbital events** — `sat events` detects maneuvers, storm-driven drag responses and decay anomalies in any object's element history (locally, with evidence and confidence per event), and `events` digests what happened in orbit: newly cataloged objects grouped by launch with fragmentation signals, confirmed decays, re-entries, past launches and geomagnetic storms (GFZ Kp). Planned next: ESA DISCOSweb (physical metadata) and a cross-source `sat info`.
 
 ## Usage
 
@@ -31,17 +31,33 @@ spacedata conjunctions --limit 20                    # upcoming close approaches
 
 `position`, `passes` and `overhead` are computed locally with SGP4 ([satellite.js](https://github.com/shashwatak/satellite-js)) from the latest CelesTrak elements — pass predictions include AOS/culmination/LOS times, azimuths, max elevation and whether each pass is *optically visible* (satellite sunlit while your sky is dark).
 
-Two datasets only exist behind a free [Space-Track](https://www.space-track.org) account (set `SPACEDATA_SPACETRACK_IDENTITY` and `SPACEDATA_SPACETRACK_PASSWORD`):
+Some datasets only exist behind a free [Space-Track](https://www.space-track.org) account (set `SPACEDATA_SPACETRACK_IDENTITY` and `SPACEDATA_SPACETRACK_PASSWORD`):
 
 ```bash
 spacedata sat history 25544 --limit 30               # orbital element history (orbit evolution/decay)
+spacedata sat events 25544 --days 30                 # detected maneuvers, storm responses, decay anomalies
+spacedata events --days 7                            # what happened in orbit: new objects, decays, storms
 spacedata reentries --limit 10                       # re-entry predictions (TIP)
 spacedata conjunctions --source spacetrack           # official public CDMs instead of SOCRATES
 ```
 
+### Orbital events
+
+`sat events` turns an object's raw element history into a timeline: impulsive maneuvers (orbit raise/lower, plane change) with estimated Δv, storm-driven drag responses and decay-rate anomalies. Detection runs locally — element jumps against the object's own noise floor (median/MAD), corroborated by SGP4 propagation residuals, and cross-checked against planetary Kp ([GFZ Potsdam](https://kp.gfz.de)) so a geomagnetic storm is not mistaken for a maneuver. These are **inferences from public mean elements, not telemetry**: every event carries its evidence (element deltas, z-score, residual, Kp) and a `confidence` level, so an agent can second-guess the verdict. Example — the ISS reboost of 2026-07-02 as detected from real data:
+
+```json
+{"type":"maneuver","subtype":"orbit-raise","confidence":"high",
+ "window":{"from":"2026-07-01T12:11:46","to":"2026-07-04T02:07:57"},
+ "evidence":{"deltaSemiMajorAxisKm":1.91,"zScore":83.4,"noiseFloorKm":0.01,
+ "sgp4ResidualKm":622.6,"residualThresholdKm":9.7,"maxKp":5.667},
+ "estimatedDvMs":1.081}
+```
+
+`events` is the catalog-wide digest ("what happened in orbit this week"): nothing in it is inferred — newly cataloged objects grouped by launch (a burst of new pieces from an *old* launch is flagged as a fragmentation signal), decay dates set, renames, re-entry predictions, past launches and geomagnetic storms.
+
 ### MCP server
 
-`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Twelve tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_satellite_position`, `get_satellite_passes`, `get_satellites_overhead`, `get_space_weather`, `get_aurora_forecast`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
+`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Fourteen tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_satellite_position`, `get_satellite_passes`, `get_satellites_overhead`, `get_space_weather`, `get_aurora_forecast`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_satellite_events`, `get_orbital_events`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
 
 Claude Code:
 
@@ -62,7 +78,7 @@ Claude Desktop (`claude_desktop_config.json`):
 }
 ```
 
-To enable the two Space-Track tools, add `"env": {"SPACEDATA_SPACETRACK_IDENTITY": "...", "SPACEDATA_SPACETRACK_PASSWORD": "..."}` to the server entry.
+To enable the Space-Track tools (`get_orbit_history`, `get_satellite_events`, `get_orbital_events`, `get_reentries` and CDM conjunctions), add `"env": {"SPACEDATA_SPACETRACK_IDENTITY": "...", "SPACEDATA_SPACETRACK_PASSWORD": "..."}` to the server entry.
 
 Tip: if your agent can run shell commands (like Claude Code), the plain CLI is cheaper in context tokens than loading MCP tool schemas — `serve` shines in clients without a shell (Claude Desktop, claude.ai).
 
@@ -74,10 +90,12 @@ For Claude Code, add this to your `~/.claude/CLAUDE.md` (or a project `CLAUDE.md
 
 ```markdown
 - `spacedata` — CLI for public space data (no API keys needed). Use it via the shell
-  for anything about satellites, orbits, passes, conjunctions or launches:
+  for anything about satellites, orbits, passes, conjunctions, launches or orbital events:
   `spacedata position <norad-id>` (live location), `spacedata passes <norad-id> --lat .. --lon ..`
   (when it flies over, incl. visibility), `spacedata overhead --lat .. --lon ..` (what's above),
   `spacedata tle <norad-id>`, `spacedata sat search <name>`, `spacedata sat catalog <norad-id>`,
+  `spacedata sat events <norad-id>` (detected maneuvers/anomalies, evidence included),
+  `spacedata events` (what happened in orbit: new objects, decays, storms),
   `spacedata conjunctions [--norad id]`, `spacedata launches upcoming [--search text]`.
   Always outputs one JSON document; exit 2 = not found. Run `spacedata --help` for details.
 ```
@@ -112,6 +130,8 @@ Responses are cached in `~/.cache/spacedata` (override with `--cache-dir` or `XD
 | CelesTrak | 2 h | GP data updates every 2 h; policy asks for one download per cycle |
 | Launch Library 2 | 1 h | Free tier allows 15 calls/hour per IP |
 | NOAA SWPC | 5 min (real-time) / 30 min (forecasts) | Products refresh every 1-5 min; one cache per refresh cycle |
+| Space-Track | 1 h | User agreement caps queries (<30/min, <300/h); GP guidance is at most hourly — also enforced by a persistent rate limiter |
+| GFZ Kp | 3 h | Kp is issued in 3-hour bins; one cache per bin |
 
 On any non-200 response the source's circuit breaker opens and `spacedata` refuses to query it again until the cooldown expires (CelesTrak's M2M policy requires stopping immediately on errors; ignoring it gets your IP firewalled).
 
@@ -140,6 +160,8 @@ cd packages/cli && bun src/cli.ts tle 25544
 ## Data sources & credits
 
 - Orbital data: [CelesTrak](https://celestrak.org) (Dr. T.S. Kelso)
+- Catalog, element history, CDMs and TIP data: [Space-Track](https://www.space-track.org) (18 SDS)
 - Launch data: [Launch Library 2](https://thespacedevs.com/llapi) by The Space Devs
 - Space weather and aurora data: [NOAA SWPC](https://www.swpc.noaa.gov)
+- Planetary Kp index: [GFZ German Research Centre for Geosciences](https://kp.gfz.de) (CC BY 4.0)
 - SGP4 propagation: [satellite.js](https://github.com/shashwatak/satellite-js)

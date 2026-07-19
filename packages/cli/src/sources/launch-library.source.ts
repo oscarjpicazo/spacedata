@@ -67,6 +67,45 @@ export function fetchUpcomingLaunches(
 	});
 }
 
+export interface PreviousLaunchesOptions {
+	cache: FileCache;
+	fresh: boolean;
+	limit: number;
+	/** Only launches with NET at or after this instant (ISO 8601). */
+	sinceIso: string;
+	baseUrl?: string;
+	token?: string;
+}
+
+/**
+ * Recent past launches, most recent first. `sinceIso` should be rounded (the
+ * compute layer aligns it to the hour) so the URL — and with it the cache
+ * key — stays stable for a whole TTL.
+ */
+export function fetchPreviousLaunches(
+	options: PreviousLaunchesOptions,
+): Promise<Result<SourceResult<LaunchListResult>, SpaceDataError>> {
+	const baseUrl =
+		options.baseUrl ?? process.env.SPACEDATA_LL2_BASE_URL ?? BASE_URL;
+	const url = new URL(`${baseUrl}/launches/previous/`);
+	url.searchParams.set("limit", String(options.limit));
+	url.searchParams.set("net__gte", options.sinceIso);
+
+	const token = options.token ?? process.env.SPACEDATA_LL2_TOKEN;
+
+	return sourceFetch<LaunchListResult>({
+		source: SOURCE,
+		url: url.toString(),
+		cache: options.cache,
+		ttlSeconds: TTL_SECONDS,
+		breakerCooldownSeconds: BREAKER_COOLDOWN_SECONDS,
+		fresh: options.fresh,
+		headers:
+			token !== undefined ? { Authorization: `Token ${token}` } : undefined,
+		parseBody: parseLaunchListBody,
+	});
+}
+
 function parseLaunchListBody(
 	body: string,
 ): Result<LaunchListResult, SpaceDataError> {

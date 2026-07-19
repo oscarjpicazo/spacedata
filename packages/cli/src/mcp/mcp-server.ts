@@ -6,11 +6,13 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { Result } from "neverthrow";
 import { z } from "zod";
+import { computeOrbitalEvents } from "../compute/orbital-events.compute";
 import {
 	computeOverhead,
 	computePasses,
 	computePosition,
 } from "../compute/propagation.compute";
+import { computeSatelliteEvents } from "../compute/satellite-events.compute";
 import {
 	computeAurora,
 	computeSpaceWeather,
@@ -428,6 +430,64 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
 				cache,
 				fresh: false,
 			});
+		},
+	},
+	{
+		name: "get_satellite_events",
+		description:
+			"Orbital events of one object, inferred locally from its element history: impulsive " +
+			"maneuvers (orbit raise/lower, plane change) with estimated Δv in m/s, storm-driven drag " +
+			"responses (cross-checked against planetary Kp) and decay-rate anomalies. Answers 'has " +
+			"this satellite maneuvered recently?' and 'is it decaying faster than before?'. Every " +
+			"event carries its evidence and a confidence level — these are inferences from public " +
+			"mean elements, not telemetry. Requires a free Space-Track account " +
+			"(SPACEDATA_SPACETRACK_IDENTITY and SPACEDATA_SPACETRACK_PASSWORD env vars).",
+		inputSchema: {
+			type: "object",
+			properties: {
+				noradId: { type: "integer", description: "NORAD catalog id" },
+				days: {
+					type: "integer",
+					description: "analysis window in days, 1-90 (default 30)",
+				},
+			},
+			required: ["noradId"],
+		},
+		handler: (args, cache) => {
+			const parsed = z
+				.object({
+					noradId: noradIdSchema,
+					days: z.number().int().min(1).max(90).optional(),
+				})
+				.parse(args);
+			return computeSatelliteEvents(parsed.noradId, parsed.days ?? 30, {
+				cache,
+				fresh: false,
+			});
+		},
+	},
+	{
+		name: "get_orbital_events",
+		description:
+			"What happened in orbit in the last days: newly cataloged objects grouped by launch " +
+			"(with fragmentation signals when an old launch suddenly produces many pieces), decay " +
+			"dates set and renames, re-entry predictions, past launches and geomagnetic storms. " +
+			"Requires a free Space-Track account (SPACEDATA_SPACETRACK_IDENTITY and " +
+			"SPACEDATA_SPACETRACK_PASSWORD env vars).",
+		inputSchema: {
+			type: "object",
+			properties: {
+				days: {
+					type: "integer",
+					description: "report window in days, 1-30 (default 7)",
+				},
+			},
+		},
+		handler: (args, cache) => {
+			const parsed = z
+				.object({ days: z.number().int().min(1).max(30).optional() })
+				.parse(args ?? {});
+			return computeOrbitalEvents(parsed.days ?? 7, { cache, fresh: false });
 		},
 	},
 	{

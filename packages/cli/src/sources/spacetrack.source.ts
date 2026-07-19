@@ -8,6 +8,10 @@ import {
 	cdmArraySchema,
 	type GpHistory,
 	gpHistoryArraySchema,
+	type SatcatChange,
+	type SatcatDebut,
+	satcatChangeArraySchema,
+	satcatDebutArraySchema,
 	type Tip,
 	tipArraySchema,
 } from "../domain/spacetrack.schema";
@@ -82,7 +86,35 @@ export interface HistoricalElset {
 	raOfAscNodeDeg: number;
 	argOfPericenterDeg: number;
 	meanAnomalyDeg: number;
+	/** SGP4 drag term (1/Earth radii); absent on a few sparse records. */
+	bstar: number | undefined;
 	derived: DerivedOrbit;
+}
+
+/** A newly cataloged object (satcat_debut). */
+export interface CatalogDebut {
+	noradId: number;
+	internationalDesignator: string;
+	name: string | undefined;
+	objectType: string | undefined;
+	/** When the record entered the public catalog (UTC). */
+	debut: string;
+	country: string | undefined;
+	launchDate: string | undefined;
+	launchSite: string | undefined;
+	rcsSize: string | undefined;
+}
+
+/** An administrative change to an existing catalog record (satcat_change). */
+export interface CatalogChange {
+	noradId: number;
+	changedAt: string;
+	name: string | undefined;
+	previousName: string | undefined;
+	internationalDesignator: string | undefined;
+	previousInternationalDesignator: string | undefined;
+	decayDate: string | undefined;
+	previousDecayDate: string | undefined;
 }
 
 export function fetchConjunctions(
@@ -140,6 +172,77 @@ export function fetchElsetHistory(
 				}
 				return ok(elsets.map(toHistoricalElset));
 			}),
+	);
+}
+
+/** Hard cap for one object's element sets in a window query. */
+const ELSET_WINDOW_LIMIT = 400;
+
+/**
+ * Every element set of one object in the last `days` days, oldest first —
+ * the input series of the event detectors. Unlike fetchElsetHistory, the
+ * window form makes gap statistics meaningful.
+ */
+export function fetchElsetWindow(
+	noradId: number,
+	days: number,
+	options: SpacetrackOptions,
+): Promise<Result<SourceResult<HistoricalElset[]>, SpaceDataError>> {
+	return spacetrackQuery<HistoricalElset[]>(
+		`/class/gp_history/NORAD_CAT_ID/${noradId}/EPOCH/>now-${days}/orderby/EPOCH asc/limit/${ELSET_WINDOW_LIMIT}/format/json`,
+		options,
+		TTL_HOUR_SECONDS,
+		(body) =>
+			parseWith(gpHistoryArraySchema, body).andThen((elsets) => {
+				if (elsets.length === 0) {
+					return err(
+						new NotFoundError(
+							`no element sets in the last ${days} days for NORAD id ${noradId} on Space-Track (unknown object, or no recent tracking)`,
+						),
+					);
+				}
+				return ok(elsets.map(toHistoricalElset));
+			}),
+	);
+}
+
+/**
+ * Objects newly added to the catalog in the last `days` days, newest first.
+ * An empty week is a valid answer, not a NotFound.
+ */
+export function fetchSatcatDebuts(
+	days: number,
+	limit: number,
+	options: SpacetrackOptions,
+): Promise<Result<SourceResult<CatalogDebut[]>, SpaceDataError>> {
+	return spacetrackQuery<CatalogDebut[]>(
+		`/class/satcat_debut/DEBUT/>now-${days}/orderby/DEBUT desc/limit/${limit}/format/json`,
+		options,
+		TTL_HOUR_SECONDS,
+		(body) =>
+			parseWith(satcatDebutArraySchema, body).map((debuts) =>
+				debuts.map(toCatalogDebut),
+			),
+	);
+}
+
+/**
+ * Administrative catalog changes (decay dates set, renames, …) in the last
+ * `days` days, newest first.
+ */
+export function fetchSatcatChanges(
+	days: number,
+	limit: number,
+	options: SpacetrackOptions,
+): Promise<Result<SourceResult<CatalogChange[]>, SpaceDataError>> {
+	return spacetrackQuery<CatalogChange[]>(
+		`/class/satcat_change/CHANGE_MADE/>now-${days}/orderby/CHANGE_MADE desc/limit/${limit}/format/json`,
+		options,
+		TTL_HOUR_SECONDS,
+		(body) =>
+			parseWith(satcatChangeArraySchema, body).map((changes) =>
+				changes.map(toCatalogChange),
+			),
 	);
 }
 
@@ -298,6 +401,34 @@ function toHistoricalElset(elset: GpHistory): HistoricalElset {
 		raOfAscNodeDeg: elset.RA_OF_ASC_NODE,
 		argOfPericenterDeg: elset.ARG_OF_PERICENTER,
 		meanAnomalyDeg: elset.MEAN_ANOMALY,
+		bstar: elset.BSTAR,
 		derived: deriveOrbit(elset.MEAN_MOTION, elset.ECCENTRICITY),
+	};
+}
+
+function toCatalogDebut(debut: SatcatDebut): CatalogDebut {
+	return {
+		noradId: debut.NORAD_CAT_ID,
+		internationalDesignator: debut.INTLDES,
+		name: debut.SATNAME,
+		objectType: debut.OBJECT_TYPE,
+		debut: debut.DEBUT,
+		country: debut.COUNTRY,
+		launchDate: debut.LAUNCH,
+		launchSite: debut.SITE,
+		rcsSize: debut.RCS_SIZE,
+	};
+}
+
+function toCatalogChange(change: SatcatChange): CatalogChange {
+	return {
+		noradId: change.NORAD_CAT_ID,
+		changedAt: change.CHANGE_MADE,
+		name: change.CURRENT_NAME,
+		previousName: change.PREVIOUS_NAME,
+		internationalDesignator: change.CURRENT_INTLDES,
+		previousInternationalDesignator: change.PREVIOUS_INTLDES,
+		decayDate: change.CURRENT_DECAY,
+		previousDecayDate: change.PREVIOUS_DECAY,
 	};
 }
