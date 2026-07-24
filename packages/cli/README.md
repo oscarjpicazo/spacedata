@@ -33,12 +33,15 @@ spacedata --fresh tle 25544                          # bypass the local cache
 spacedata sat catalog 25544                          # full SATCAT record: type, status, owner, launch, RCS
 spacedata conjunctions --limit 20                    # upcoming close approaches (CelesTrak SOCRATES)
 spacedata conjunctions --norad 25544                 # conjunctions involving one object
+spacedata sat screen 25544                           # conjunctions + who can dodge + avoidance verdict
 ```
 
-Two datasets only exist behind a free [Space-Track](https://www.space-track.org) account (set `SPACEDATA_SPACETRACK_IDENTITY` and `SPACEDATA_SPACETRACK_PASSWORD`):
+Some datasets only exist behind a free [Space-Track](https://www.space-track.org) account (set `SPACEDATA_SPACETRACK_IDENTITY` and `SPACEDATA_SPACETRACK_PASSWORD`); `sat screen` works without one but needs it to detect avoidance maneuvers:
 
 ```bash
 spacedata sat history 25544 --limit 30               # orbital element history (orbit evolution/decay)
+spacedata sat events 25544 --days 30                 # detected maneuvers, storm responses, decay anomalies
+spacedata events --days 7                            # what happened in orbit: new objects, decays, storms
 spacedata reentries --limit 10                       # re-entry predictions (TIP)
 spacedata conjunctions --source spacetrack           # official public CDMs instead of SOCRATES
 ```
@@ -47,7 +50,7 @@ spacedata conjunctions --source spacetrack           # official public CDMs inst
 
 ## MCP server
 
-`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Twelve tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_satellite_position`, `get_satellite_passes`, `get_satellites_overhead`, `get_space_weather`, `get_aurora_forecast`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
+`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Fifteen tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_satellite_position`, `get_satellite_passes`, `get_satellites_overhead`, `get_space_weather`, `get_aurora_forecast`, `get_conjunctions`, `screen_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_satellite_events`, `get_orbital_events`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
 
 Claude Code:
 

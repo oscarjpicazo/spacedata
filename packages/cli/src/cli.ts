@@ -2,6 +2,7 @@
 import { Command, InvalidArgumentError } from "commander";
 import type { Result } from "neverthrow";
 import packageJson from "../package.json";
+import { computeConjunctionScreening } from "./compute/conjunction-screening.compute";
 import { computeOrbitalEvents } from "./compute/orbital-events.compute";
 import {
 	computeOverhead,
@@ -72,6 +73,7 @@ Examples:
   spacedata sat search "ZARYA"                find objects by name
   spacedata sat catalog 25544                 catalog record: type, status, owner, launch, RCS
   spacedata sat events 25544                  detected maneuvers/anomalies of one object
+  spacedata sat screen 25544                  conjunctions + who can dodge + avoidance verdict
   spacedata events --days 7                   what happened in orbit: new objects, decays, storms
   spacedata conjunctions --limit 10           closest upcoming approaches (public SOCRATES data)
   spacedata launches upcoming --search ariane upcoming launches, filtered
@@ -80,6 +82,7 @@ Examples:
 Only 'sat history', 'sat events', 'events', 'reentries' and 'conjunctions --source
 spacetrack' need a free Space-Track account (SPACEDATA_SPACETRACK_IDENTITY /
 SPACEDATA_SPACETRACK_PASSWORD); everything else works with no account or API key.
+'sat screen' works without one but needs it to detect avoidance maneuvers.
 
 Exit codes: 0 ok · 1 usage · 2 not found · 3 upstream/network · 4 cooldown/rate limit ·
 5 unexpected upstream schema · 6 missing/rejected credentials · 7 computation failed`,
@@ -186,6 +189,27 @@ sat
 			finish(result, globals.pretty);
 		},
 	);
+
+sat
+	.command("screen")
+	.description(
+		"Conjunction screening with an avoidance verdict for one object: its upcoming close " +
+			"approaches (CelesTrak SOCRATES), which of each pair can maneuver (SATCAT object type " +
+			"and status), and whether the object already made an avoidance maneuver — maneuvers " +
+			"detected in its recent element history (as in 'sat events') are correlated with each " +
+			"conjunction's time of closest approach. Verdicts carry evidence and confidence. " +
+			"Screening and maneuverability need no account; avoidance detection needs a free " +
+			"Space-Track account. Example: spacedata sat screen 25544",
+	)
+	.argument("<norad-id>", "NORAD catalog id", parseNoradId)
+	.action(async (noradId: number, _options: unknown, command: Command) => {
+		const globals = command.optsWithGlobals<GlobalOptions>();
+		const result = await computeConjunctionScreening(
+			noradId,
+			sourceOptions(globals),
+		);
+		finish(result, globals.pretty);
+	});
 
 program
 	.command("events")

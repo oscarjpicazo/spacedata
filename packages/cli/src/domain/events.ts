@@ -104,7 +104,7 @@ const RESIDUAL_ONLY_MULTIPLE = 3;
 /** Residuals are only meaningful over gaps SGP4 can bridge accurately. */
 const RESIDUAL_MAX_GAP_DAYS = 5;
 /** Minimum series length for jump detection to be statistically meaningful. */
-const MIN_ELSETS_FOR_DETECTION = 8;
+export const MIN_ELSETS_FOR_DETECTION = 8;
 
 /**
  * Per-regime floors for the noise estimate, in km (Δa) and degrees (Δi):
