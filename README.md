@@ -27,6 +27,7 @@ spacedata --pretty tle 25544                         # human-readable JSON
 spacedata --fresh tle 25544                          # bypass the local cache
 spacedata sat catalog 25544                          # full SATCAT record: type, status, owner, launch, RCS
 spacedata conjunctions --limit 20                    # upcoming close approaches (CelesTrak SOCRATES)
+spacedata sat screen 25544                           # conjunctions + who can dodge + avoidance verdict
 ```
 
 `position`, `passes` and `overhead` are computed locally with SGP4 ([satellite.js](https://github.com/shashwatak/satellite-js)) from the latest CelesTrak elements — pass predictions include AOS/culmination/LOS times, azimuths, max elevation and whether each pass is *optically visible* (satellite sunlit while your sky is dark).
@@ -55,9 +56,13 @@ spacedata conjunctions --source spacetrack           # official public CDMs inst
 
 `events` is the catalog-wide digest ("what happened in orbit this week"): nothing in it is inferred — newly cataloged objects grouped by launch (a burst of new pieces from an *old* launch is flagged as a fragmentation signal), decay dates set, renames, re-entry predictions, past launches and geomagnetic storms.
 
+### Conjunction screening
+
+`sat screen` answers "is this satellite at risk, and has it already dodged?" for one object: its upcoming close approaches (CelesTrak SOCRATES), which of each pair *can* maneuver (SATCAT object type and operational status — debris can't dodge), and whether the object already made an avoidance maneuver: maneuvers detected in its recent element history (the `sat events` detector) are correlated with each conjunction's time of closest approach. Every verdict (`likely-avoidance`, `no-maneuver-detected`, `not-maneuverable`, …) carries its evidence — the correlated maneuver with Δv and z-score, the lead time to TCA — and a confidence level. Screening and maneuverability need no account; the avoidance verdict needs a free Space-Track account, and degrades honestly to `history-unavailable` without one.
+
 ### MCP server
 
-`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Fourteen tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_satellite_position`, `get_satellite_passes`, `get_satellites_overhead`, `get_space_weather`, `get_aurora_forecast`, `get_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_satellite_events`, `get_orbital_events`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
+`spacedata serve` runs the same data layer as an [MCP](https://modelcontextprotocol.io) server over stdio, for Claude Desktop, Claude Code, Cursor and any other MCP client. Fifteen tools: `get_orbit`, `search_satellites`, `get_satellite_catalog`, `get_satellite_position`, `get_satellite_passes`, `get_satellites_overhead`, `get_space_weather`, `get_aurora_forecast`, `get_conjunctions`, `screen_conjunctions`, `get_upcoming_launches`, `get_orbit_history`, `get_satellite_events`, `get_orbital_events`, `get_reentries` — with the same caching and rate-limit protection as the CLI.
 
 Claude Code:
 
@@ -95,6 +100,7 @@ For Claude Code, add this to your `~/.claude/CLAUDE.md` (or a project `CLAUDE.md
   (when it flies over, incl. visibility), `spacedata overhead --lat .. --lon ..` (what's above),
   `spacedata tle <norad-id>`, `spacedata sat search <name>`, `spacedata sat catalog <norad-id>`,
   `spacedata sat events <norad-id>` (detected maneuvers/anomalies, evidence included),
+  `spacedata sat screen <norad-id>` (conjunctions + who can dodge + avoidance verdict),
   `spacedata events` (what happened in orbit: new objects, decays, storms),
   `spacedata conjunctions [--norad id]`, `spacedata launches upcoming [--search text]`.
   Always outputs one JSON document; exit 2 = not found. Run `spacedata --help` for details.

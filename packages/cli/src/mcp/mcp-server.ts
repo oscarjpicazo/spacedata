@@ -6,6 +6,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { Result } from "neverthrow";
 import { z } from "zod";
+import { computeConjunctionScreening } from "../compute/conjunction-screening.compute";
 import { computeOrbitalEvents } from "../compute/orbital-events.compute";
 import {
 	computeOverhead,
@@ -488,6 +489,32 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
 				.object({ days: z.number().int().min(1).max(30).optional() })
 				.parse(args ?? {});
 			return computeOrbitalEvents(parsed.days ?? 7, { cache, fresh: false });
+		},
+	},
+	{
+		name: "screen_conjunctions",
+		description:
+			"Conjunction screening with an avoidance verdict for one object: its upcoming close " +
+			"approaches (CelesTrak SOCRATES, public), which of each pair can maneuver (SATCAT object " +
+			"type and status), and whether the object already made an avoidance maneuver — maneuvers " +
+			"detected in its recent element history are correlated with each conjunction's time of " +
+			"closest approach. Answers 'is this satellite at risk, and has it already dodged?'. " +
+			"Verdicts carry evidence and confidence. Screening and maneuverability need no account; " +
+			"the avoidance verdict needs a free Space-Track account (SPACEDATA_SPACETRACK_IDENTITY " +
+			"and SPACEDATA_SPACETRACK_PASSWORD env vars).",
+		inputSchema: {
+			type: "object",
+			properties: {
+				noradId: { type: "integer", description: "NORAD catalog id" },
+			},
+			required: ["noradId"],
+		},
+		handler: (args, cache) => {
+			const parsed = z.object({ noradId: noradIdSchema }).parse(args);
+			return computeConjunctionScreening(parsed.noradId, {
+				cache,
+				fresh: false,
+			});
 		},
 	},
 	{
