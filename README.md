@@ -8,7 +8,7 @@ Instead of teaching an agent (or yourself) four different APIs, query languages 
 
 ## Status
 
-**v0.6** — CelesTrak (orbital elements, catalog search), Launch Library 2 (launches) and NOAA SWPC (space weather, aurora) with no account needed, plus Space-Track (SATCAT, element history, conjunctions, re-entry predictions) using your own free account. New in 0.6: **orbital events** — `sat events` detects maneuvers, storm-driven drag responses and decay anomalies in any object's element history (locally, with evidence and confidence per event), and `events` digests what happened in orbit: newly cataloged objects grouped by launch with fragmentation signals, confirmed decays, re-entries, past launches and geomagnetic storms (GFZ Kp). Planned next: ESA DISCOSweb (physical metadata) and a cross-source `sat info`.
+**v0.7** — CelesTrak (orbital elements, catalog search), Launch Library 2 (launches) and NOAA SWPC (space weather, aurora) with no account needed, plus Space-Track (SATCAT, element history, conjunctions, re-entry predictions) using your own free account, and locally computed **orbital events** (`sat events`, `events`) with evidence and confidence per event. New in 0.7: **conjunction screening** — `sat screen` cross-references an object's upcoming close approaches with who of each pair can maneuver and with the maneuvers actually detected in its element history, yielding an avoidance verdict per conjunction ("has it already dodged?"). Planned next: fleet screening (`--fleet`), retrospective conjunction assessment over official CDMs, ESA DISCOSweb (physical metadata).
 
 ## Usage
 
